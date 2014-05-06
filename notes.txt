@@ -1,0 +1,34 @@
+2014-05-05
+
+cmake works, linking fails:
+
+Linking CXX executable ElmerSolver
+libelmersolver.so: undefined reference to `mpi_allreduce_'
+libelmersolver.so: undefined reference to `pdsaupd_'
+libelmersolver.so: undefined reference to `mpi_buffer_detach_'
+libelmersolver.so: undefined reference to `mpi_recv_'
+libelmersolver.so: undefined reference to `mpi_comm_size_'
+libelmersolver.so: undefined reference to `mpi_buffer_attach_'
+libelmersolver.so: undefined reference to `mpi_send_'
+libelmersolver.so: undefined reference to `pdseupd_'
+libelmersolver.so: undefined reference to `mpi_barrier_'
+libelmersolver.so: undefined reference to `mpi_init_'
+libelmersolver.so: undefined reference to `mpi_waitany_'
+libelmersolver.so: undefined reference to `pznaupd_'
+libelmersolver.so: undefined reference to `mpi_bsend_'
+libelmersolver.so: undefined reference to `mpi_comm_free_'
+libelmersolver.so: undefined reference to `pzneupd_'
+libelmersolver.so: undefined reference to `pdneupd_'
+libelmersolver.so: undefined reference to `mpi_finalize_'
+libelmersolver.so: undefined reference to `mpi_waitall_'
+libelmersolver.so: undefined reference to `mpi_comm_rank_'
+libelmersolver.so: undefined reference to `mpi_comm_group_'
+libelmersolver.so: undefined reference to `mpi_irecv_'
+libelmersolver.so: undefined reference to `mpi_group_incl_'
+libelmersolver.so: undefined reference to `pdnaupd_'
+libelmersolver.so: undefined reference to `addrfunc_'
+libelmersolver.so: undefined reference to `mpi_comm_create_'
+collect2: error: ld returned 1 exit status
+make[2]: *** [fem/src/ElmerSolver] Error 1
+make[1]: *** [fem/src/CMakeFiles/ElmerSolver.dir/all] Error 2
+
