@@ -72,8 +72,8 @@ ADD_LIBRARY(mpi_stubs SHARED mpif_stubs.F90)
 ADD_LIBRARY(elmersolver SHARED ${solverlib_SOURCES})
 
 # ElmerSolver libraries 
-SET(ELMERSOLVER_LIBRARIES matc eiof umfpack 
-                          amd fhuti binio arpack 
+SET(ELMERSOLVER_LIBRARIES elmersolver matc eiof umfpack 
+                          amd fhuti binio arpack
   	                  ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES} 
                           ${CMAKE_DL_LIBS})
 
@@ -93,7 +93,7 @@ TARGET_LINK_LIBRARIES(elmersolver ${ELMERSOLVER_LIBRARIES})
 
 # ElmerSolver
 ADD_EXECUTABLE(ElmerSolver Solver.F90)
-TARGET_LINK_LIBRARIES(ElmerSolver  ${ELMERSOLVER_LIBRARIES} elmersolver mpi_stubs)
+TARGET_LINK_LIBRARIES(ElmerSolver ${ELMERSOLVER_LIBRARIES} mpi_stubs)
 
 # Installation rules
 INSTALL(FILES elements.def SOLVER.KEYWORDS DESTINATION "share/elmersolver/lib")
