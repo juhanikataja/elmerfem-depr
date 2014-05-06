@@ -93,7 +93,7 @@ TARGET_LINK_LIBRARIES(elmersolver ${ELMERSOLVER_LIBRARIES})
 
 # ElmerSolver
 ADD_EXECUTABLE(ElmerSolver Solver.F90)
-TARGET_LINK_LIBRARIES(ElmerSolver elmersolver ${ELMERSOLVER_LIBRARIES} mpi_stubs)
+TARGET_LINK_LIBRARIES(ElmerSolver  ${ELMERSOLVER_LIBRARIES} elmersolver mpi_stubs)
 
 # Installation rules
 INSTALL(FILES elements.def SOLVER.KEYWORDS DESTINATION "share/elmersolver/lib")
