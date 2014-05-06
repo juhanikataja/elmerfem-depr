@@ -92,8 +92,8 @@ ENDIF()
 TARGET_LINK_LIBRARIES(elmersolver ${ELMERSOLVER_LIBRARIES})
 
 # ElmerSolver
-#ADD_EXECUTABLE(ElmerSolver Solver.F90)
-#TARGET_LINK_LIBRARIES(ElmerSolver ${ELMERSOLVER_LIBRARIES} elmersolver mpi_stubs)
+ADD_EXECUTABLE(ElmerSolver Solver.F90)
+TARGET_LINK_LIBRARIES(ElmerSolver elmersolver ${ELMERSOLVER_LIBRARIES} mpi_stubs)
 
 # Installation rules
 INSTALL(FILES elements.def SOLVER.KEYWORDS DESTINATION "share/elmersolver/lib")
@@ -102,8 +102,8 @@ IF(MPI_FOUND)
   INSTALL(TARGETS ElmerSolver_mpi RUNTIME DESTINATION "bin")
 ENDIF()
 
-#INSTALL(TARGETS ElmerSolver elmersolver mpi_stubs RUNTIME DESTINATION "bin" 
-                #LIBRARY DESTINATION "lib")
+INSTALL(TARGETS ElmerSolver elmersolver mpi_stubs RUNTIME DESTINATION "bin" 
+                LIBRARY DESTINATION "lib")
 INSTALL(PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/elmerf90 DESTINATION "bin")
 INSTALL(PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/elmerld DESTINATION  "bin")
 # Fortran module files
