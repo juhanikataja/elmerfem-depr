@@ -84,8 +84,7 @@ IF(MPI_FOUND)
 
   # ElmerSolver_mpi
   ADD_EXECUTABLE(ElmerSolver_mpi Solver.F90)
-  TARGET_LINK_LIBRARIES(ElmerSolver_mpi ${MPI_Fortran_LIBRARIES}
-                                        parpack ${ELMERSOLVER_LIBRARIES})
+  TARGET_LINK_LIBRARIES(ElmerSolver_mpi ${ELMERSOLVER_LIBRARIES} ${MPI_Fortran_LIBRARIES} parpack )
 ENDIF()
 
 # elmersolver -library
@@ -93,8 +92,7 @@ TARGET_LINK_LIBRARIES(elmersolver ${ELMERSOLVER_LIBRARIES})
 
 # ElmerSolver
 ADD_EXECUTABLE(ElmerSolver Solver.F90)
-TARGET_LINK_LIBRARIES(ElmerSolver mpi_stubs 
-				  ${ELMERSOLVER_LIBRARIES})
+TARGET_LINK_LIBRARIES(ElmerSolver ${ELMERSOLVER_LIBRARIES} mpi_stubs)
 
 # Installation rules
 INSTALL(FILES elements.def SOLVER.KEYWORDS DESTINATION "share/elmersolver/lib")
