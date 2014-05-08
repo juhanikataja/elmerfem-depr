@@ -36,3 +36,14 @@ make[1]: *** [fem/src/CMakeFiles/ElmerSolver.dir/all] Error 2
 
 * Requires cmake 2.8.9 for CMAKE_POSITION_INDEPENDENT_CODE
 * fixed undefined symbol "addrfunc_" issue by adding #ifndef USE_ISO_C_BINDINGS \n INTEGER(KIND=Addrint) :: AddrFunc \n #endif
+
+2014-05-08
+
+* cpack wants to package the tests in build dirs
+  => solution install them in Release build to different place or
+  don't install at all
+* mpi libraries are linked with -rpath
+* installs arpack, parpack, umfpack etc.. which should be dependencies
+  => TODO?: make optionally installable alongside with elmer?
+* matc, binio, huti, fhuti, libelmersolver lack version numbers
+* what is the name of the packet?

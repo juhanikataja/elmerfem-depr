@@ -13,5 +13,5 @@ SET(arpack_SRCS cgetv0.f cnaitr.f cnapps.f cnaup2.f cnaupd.f cneigh.f
 	zmout.f zvout.f)
 
 ADD_LIBRARY(arpack SHARED ${arpack_SRCS})
-INSTALL(TARGETS arpack DESTINATION "lib")
+INSTALL(TARGETS arpack DESTINATION "lib/elmer")
 

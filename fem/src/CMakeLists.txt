@@ -110,7 +110,9 @@ INSTALL(TARGETS ElmerSolver elmersolver mpi_stubs RUNTIME DESTINATION "bin"
 INSTALL(PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/elmerf90 DESTINATION "bin")
 INSTALL(PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/elmerld DESTINATION  "bin")
 # Fortran module files
-INSTALL(DIRECTORY ${CMAKE_Fortran_MODULE_DIRECTORY}/.
-		  DESTINATION ${CMAKE_INSTALL_PREFIX}/share/elmersolver/include)
+#INSTALL(DIRECTORY ${CMAKE_Fortran_MODULE_DIRECTORY}/.
+		  #DESTINATION ${CMAKE_INSTALL_PREFIX}/share/elmersolver/include)
 
+INSTALL(DIRECTORY ${CMAKE_Fortran_MODULE_DIRECTORY}/.
+                  DESTINATION "share/elmersolver/include")
 # INSTALL(CODE "EXECUTE_PROCESS (COMMAND \"${CMAKE_COMMAND}\" -E copy_directory \"${CMAKE_Fortran_MODULE_DIRECTORY}/\${BUILD_TYPE}\" \"${CMAKE_INSTALL_PREFIX}/share/elmersolver/include\")")
