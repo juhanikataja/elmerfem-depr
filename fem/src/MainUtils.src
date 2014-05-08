@@ -181,7 +181,7 @@ CONTAINS
     INTEGER  :: PROCEDURE
 !------------------------------------------------------------------------------
 #ifndef USE_ISO_C_BINDINGS
-    INTEGER(KIND=Addrint) :: AddrFunc
+   INTEGER(KIND=AddrInt) :: AddrFunc
 #endif
 !------------------------------------------------------------------------------
     Solver % PROCEDURE = AddrFunc( PROCEDURE )
