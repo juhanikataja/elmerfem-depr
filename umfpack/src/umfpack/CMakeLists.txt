@@ -461,4 +461,4 @@ ADD_LIBRARY(umfpack STATIC umfpack_timer.c umfpack_tictoc.c ${UMFPACK_CPP_SOURCE
 ADD_DEPENDENCIES(umfpack umfpack_srcs)
 
 INSTALL(TARGETS umfpack
-        DESTINATION "lib/elmer")
+        DESTINATION ${ELMER_INSTALL_LIB_DIR})
