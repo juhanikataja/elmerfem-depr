@@ -68,45 +68,87 @@ IF (NOT MPI_FOUND)
               ${CMAKE_CURRENT_BINARY_DIR}/mpif.h)
 ENDIF()
 
-ADD_LIBRARY(mpi_stubs SHARED mpif_stubs.F90)
-ADD_LIBRARY(elmersolver SHARED ${solverlib_SOURCES})
+IF(NOT(NO_SERIAL_BINARY))
+  ADD_LIBRARY(mpi_stubs SHARED mpif_stubs.F90)
+  ADD_LIBRARY(elmersolver SHARED ${solverlib_SOURCES})
+  ADD_EXECUTABLE(ElmerSolver Solver.F90)
+ENDIF()
 
 # ElmerSolver libraries 
-SET(ELMERSOLVER_LIBRARIES elmersolver matc eiof umfpack 
+SET(ELMERSOLVER_LIBRARIES matc eiof umfpack 
                           amd fhuti binio arpack
   	                  ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES} 
                           ${CMAKE_DL_LIBS})
 
-IF(MPI_FOUND)
-  # Add parpack and possibly others
-  SET(ELMERSOLVER_LIBRARIES ${ELMERSOLVER_LIBRARIES} 
-  			    ${MUMPS_LIBRARIES})
 
-  # ElmerSolver_mpi
+IF(WITH_MPI)
   ADD_EXECUTABLE(ElmerSolver_mpi Solver.F90)
- 
-  TARGET_LINK_LIBRARIES(ElmerSolver_mpi ${ELMERSOLVER_LIBRARIES} 
-                                        ${MPI_Fortran_LIBRARIES} 
-                                        parpack)
+  ADD_LIBRARY(elmersolver_mpi SHARED ${solverlib_SOURCES})
+
+  # Add parpack and possibly others
+  SET(ELMERSOLVER_LIBRARIES_MPI ${ELMERSOLVER_LIBRARIES} ${MUMPS_LIBRARIES})    
+   
+  # Executable
+  GET_TARGET_PROPERTY(CURRENT_LINK_FLAGS ElmerSolver_mpi LINK_FLAGS)
+  GET_TARGET_PROPERTY(CURRENT_COMPILE_FLAGS ElmerSolver_mpi COMPILE_FLAGS)
+
+  IF(CURRENT_LINK_FLAGS)
+    SET(CURR_LFLAGS "${CURRENT_LINK_FLAGS};${MPI_Fortran_LINK_FLAGS}")
+  ELSE()
+    SET(CURR_LFLAGS "${MPI_Fortran_LINK_FLAGS}")
+  ENDIF()
+  IF(CURRENT_COMPILE_FLAGS)
+    SET(CURR_CFLAGS "${CURRENT_COMPILE_FLAGS};${MPI_Fortran_COMPILE_FLAGS}")
+  ELSE()
+    SET(CURR_CFLAGS "${MPI_Fortran_COMPILE_FLAGS}")
+  ENDIF()
+
+  SET_TARGET_PROPERTIES(ElmerSolver_mpi PROPERTIES LINK_FLAGS "${CURR_LFLAGS}")
+  SET_TARGET_PROPERTIES(ElmerSolver_mpi PROPERTIES COMPILE_FLAGS "${CURR_CFLAGS}")
+  TARGET_LINK_LIBRARIES(ElmerSolver_mpi elmersolver_mpi)
+
+  # Library object
+  GET_TARGET_PROPERTY(CURRENT_LINK_FLAGS elmersolver_mpi LINK_FLAGS) 
+  GET_TARGET_PROPERTY(CURRENT_COMPILE_FLAGS elmersolver_mpi COMPILE_FLAGS)
+
+  IF(CURRENT_LINK_FLAGS)
+    SET(CURR_LFLAGS "${CURRENT_LINK_FLAGS};${MPI_Fortran_LINK_FLAGS}")
+  ELSE()
+    SET(CURR_LFLAGS "${MPI_Fortran_LINK_FLAGS}")
+  ENDIF()
+  IF(CURRENT_COMPILE_FLAGS)
+    SET(CURR_CFLAGS "${CURRENT_COMPILE_FLAGS};${MPI_Fortran_COMPILE_FLAGS}")
+  ELSE()
+    SET(CURR_CFLAGS "${MPI_Fortran_COMPILE_FLAGS}")
+  ENDIF()
+
+  SET_TARGET_PROPERTIES(elmersolver_mpi PROPERTIES LINK_FLAGS "${CURR_LFLAGS}")
+  SET_TARGET_PROPERTIES(elmersolver_mpi PROPERTIES COMPILE_FLAGS "${CURR_CFLAGS}")
+  TARGET_LINK_LIBRARIES(elmersolver_mpi ${ELMERSOLVER_LIBRARIES} parpack ${MPI_Fortran_LIBRARIES})
 ENDIF()
 
 # elmersolver -library
-TARGET_LINK_LIBRARIES(elmersolver ${ELMERSOLVER_LIBRARIES})
+#TARGET_LINK_LIBRARIES(elmersolver ${ELMERSOLVER_LIBRARIES})
 
-# ElmerSolver
-ADD_EXECUTABLE(ElmerSolver Solver.F90)
-TARGET_LINK_LIBRARIES(ElmerSolver ${ELMERSOLVER_LIBRARIES} 
-                                  mpi_stubs)
+# ElmerSolver serial
+IF(NOT(NO_SERIAL_BINARY))
+  TARGET_LINK_LIBRARIES(elmersolver mpi_stubs ${ELMERSOLVER_LIBRARIES})
+  TARGET_LINK_LIBRARIES(ElmerSolver elmersolver)
+ENDIF()
 
 # Installation rules
 INSTALL(FILES elements.def SOLVER.KEYWORDS DESTINATION "share/elmersolver/lib")
 
-IF(MPI_FOUND)
-  INSTALL(TARGETS ElmerSolver_mpi RUNTIME DESTINATION "bin")
+IF(WITH_MPI)
+  INSTALL(TARGETS ElmerSolver_mpi elmersolver_mpi RUNTIME DESTINATION "bin"
+    LIBRARY DESTINATION "${ELMER_INSTALL_LIB_DIR}")
+  INSTALL(TARGETS ElmerSolver RUNTIME DESTINATION "bin"
+    LIBRARY DESTINATION "${ELMER_INSTALL_LIB_DIR}")
 ENDIF()
 
 INSTALL(TARGETS ElmerSolver elmersolver mpi_stubs RUNTIME DESTINATION "bin" 
-                LIBRARY DESTINATION ${ELMER_INSTALL_LIB_DIR})
+                LIBRARY DESTINATION "${ELMER_INSTALL_LIB_DIR}")
+
 
 INSTALL(PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/elmerf90 DESTINATION "bin")
 INSTALL(PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/elmerld DESTINATION  "bin")

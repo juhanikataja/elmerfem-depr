@@ -47,3 +47,8 @@ make[1]: *** [fem/src/CMakeFiles/ElmerSolver.dir/all] Error 2
   => TODO?: make optionally installable alongside with elmer?
 * matc, binio, huti, fhuti, libelmersolver lack version numbers
 * what is the name of the packet?
+
+2014-05-12
+
+* mpi wrappers are ok so long as e.g. CC=mpicc as env-variable
+  before running cmake
