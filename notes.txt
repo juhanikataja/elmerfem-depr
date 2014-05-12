@@ -52,3 +52,5 @@ make[1]: *** [fem/src/CMakeFiles/ElmerSolver.dir/all] Error 2
 
 * mpi wrappers are ok so long as e.g. CC=mpicc as env-variable
   before running cmake
+* why elmerld wants to link against libelmersolver.so?
+
