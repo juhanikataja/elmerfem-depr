@@ -15,3 +15,6 @@ SET(arpack_SRCS cgetv0.f cnaitr.f cnapps.f cnaup2.f cnaupd.f cneigh.f
 ADD_LIBRARY(arpack SHARED ${arpack_SRCS})
 INSTALL(TARGETS arpack DESTINATION ${ELMER_INSTALL_LIB_DIR})
 
+IF(WIN32)
+  TARGET_LINK_LIBRARIES(arpack ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES})
+ENDIF()
