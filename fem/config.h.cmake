@@ -31,7 +31,8 @@
 
 /* Define if your system has dlopen, dlsym, dlerror, and dlclose for dynamic
    linking */
-#define HAVE_DLOPEN_API
+/*#define HAVE_DLOPEN_API*/
+#cmakedefine HAVE_DLOPEN_API
 
 /* Define to 1 if you have the `dlsym' function. */
 #define HAVE_DLSYM
