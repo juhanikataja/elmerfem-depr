@@ -164,5 +164,5 @@ MESSAGE(STATUS "  Install rpath:     " "${CMAKE_INSTALL_RPATH}")
 MESSAGE(STATUS "------------------------------------------------")
 ENDIF()
 
-INCLUDE(CPackConfig.cmake)
+INCLUDE(../CPackConfig_ZIP.cmake)
 INCLUDE(CPack)
