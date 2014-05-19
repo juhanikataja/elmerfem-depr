@@ -151,13 +151,13 @@ ADD_EXECUTABLE(ViewFactors ViewFactors.F90)
 TARGET_LINK_LIBRARIES(ViewFactors ${ELMERSOLVER_LIBRARIES} 
                                   mpi_stubs
 				  view3d
-				  viewaxis)
+				  viewaxis elmersolver)
 INSTALL(TARGETS ViewFactors RUNTIME DESTINATION "bin")
 
 # GebhardFactors
-ADD_EXECUTABLE(GebhardtFactors GebhardtFactors.F90) 
+ADD_EXECUTABLE(GebhardtFactors GebhardtFactors.F90)
 TARGET_LINK_LIBRARIES(GebhardtFactors ${ELMERSOLVER_LIBRARIES} 
-                                      mpi_stubs)
+                                      mpi_stubs elmersolver)
 INSTALL(TARGETS GebhardtFactors RUNTIME DESTINATION "bin")
 
 # Installation rules
