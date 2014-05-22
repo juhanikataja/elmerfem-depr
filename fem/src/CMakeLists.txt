@@ -16,7 +16,7 @@ ENDIF()
 
 SET(prefix "${CMAKE_INSTALL_PREFIX}")
 
-SET(solverlib_SOURCES NavierStokes.F90 NavierStokesGeneral.F90
+SET(solverlib_SOURCES AddrFunc.F90 NavierStokes.F90 NavierStokesGeneral.F90
   NavierStokesCylindrical.F90 Lists.F90
   DiffuseConvectiveAnisotropic.F90 LoadMod.F90
   DiffuseConvectiveGeneralAnisotropic.F90 PElementMaps.F90
@@ -76,13 +76,20 @@ IF (NOT MPI_FOUND)
               ${CMAKE_CURRENT_BINARY_DIR}/mpif.h)
 ENDIF()
 
-SET(ELMERSOLVER_LIBRARIES matc eiof umfpack 
+ADD_LIBRARY(mpi_stubs SHARED mpif_stubs.F90)
+ADD_LIBRARY(elmersolver SHARED ${solverlib_SOURCES})
+SET_TARGET_PROPERTIES(mpi_stubs
+                      PROPERTIES LINKER_LANGUAGE Fortran)
+SET_TARGET_PROPERTIES(elmersolver
+                      PROPERTIES LINKER_LANGUAGE Fortran)
+
+# ElmerSolver libraries 
+SET(ELMERSOLVER_LIBRARIES elmersolver matc eiof umfpack 
                           amd fhuti binio arpack
   	                  ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES} 
                           ${CMAKE_DL_LIBS})
 
-ADD_LIBRARY(elmersolver SHARED ${solverlib_SOURCES})
-ADD_LIBRARY(mpi_stubs SHARED mpif_stubs.F90)
+
 
 IF(NOT(WITH_MPI))
   ADD_EXECUTABLE(${ELMERSOLVER_FILENAME} Solver.F90)
