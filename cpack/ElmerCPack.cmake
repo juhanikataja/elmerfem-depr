@@ -29,16 +29,7 @@ IF(EXISTS "${CMAKE_ROOT}/Modules/CPack.cmake")
     SET(CPACK_GENERATOR "NSIS;ZIP")
   ENDIF()
 
-
-  #IF(WIN32)
-    SET(CPACK_NSIS_DISPLAY_NAME "${CPACK_PACKAGE_INSTALL_DIRECTORY}")
-    SET(CPACK_NSIS_HELP_LINK "TODO: http://www.elmerfem.org")
-    SET(CPACK_NSIS_CONTACT "TODO: elmeradm@csc.fi")
-    SET(CPACK_NSIS_EXTRA_INSTALL_COMMANDS 
-      "WriteRegExpandStr HKCU \\\"\\\\Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\App Paths\\\\${ELMERSOLVER_OUTPUT_NAME}.exe\\\" \\\"Path\\\" \\\"%INSTDIR%\\\\..\\\\lib\\\\elmersolver\\\"" )
-  #ENDIF(WIN32)
-
+  INCLUDE(${CMAKE_CURRENT_SOURCE_DIR}/cpack/NSISCPack.cmake)
   SET(CPACK_INSTALL_CMAKE_PROJECTS "${CMAKE_BINARY_DIR}" "Elmer" "ALL" "/")
-  MESSAGE(STATUS "CPACK_PACKAGE_FILE_NAME : " ${CPACK_PACKAGE_FILE_NAME})
   INCLUDE(CPack)
 ENDIF()

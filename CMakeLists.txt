@@ -184,4 +184,4 @@ MESSAGE(STATUS "------------------------------------------------")
 ENDIF()
 
 # Packaging
-INCLUDE(ElmerCPack.cmake)
+INCLUDE(${CMAKE_CURRENT_SOURCE_DIR}/cpack/ElmerCPack.cmake)

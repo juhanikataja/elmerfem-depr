@@ -24,9 +24,15 @@ FOREACH(FNAME ${SRC_FILES})
   TARGET_LINK_LIBRARIES(${BASENAME} elmersolver)
 
   IF(${BASENAME} STREQUAL "EliminateDirichlet")
-    INSTALL(TARGETS ${BASENAME} 
-      ARCHIVE DESTINATION "share/elmersolver/lib"
-      LIBRARY DESTINATION "share/elmersolver/lib")
+    IF(NOT(WIN32))
+      INSTALL(TARGETS ${BASENAME} 
+        ARCHIVE DESTINATION "share/elmersolver/lib"
+        LIBRARY DESTINATION "share/elmersolver/lib")
+    ELSE()
+      INSTALL(TARGETS ${BASENAME}
+        RUNTIME DESTINATION "share/elmersolver/lib"
+        LIBRARY DESTINATION "share/elmersolver/lib")
+    ENDIF()
   ELSE()
     INSTALL(TARGETS ${BASENAME} LIBRARY DESTINATION "share/elmersolver/lib")
   ENDIF()
