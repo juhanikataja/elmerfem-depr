@@ -135,6 +135,7 @@ ADD_SUBDIRECTORY(meshgen2d)
 ADD_SUBDIRECTORY(fem)
 ADD_SUBDIRECTORY(mathlibs)
 ADD_SUBDIRECTORY(elmergrid)
+ADD_SUBDIRECTORY(licenses)
 
 #INCLUDE(FeatureSummary)
 #FEATURE_SUMMARY(WHAT ENABLED_FEATURES
@@ -143,6 +144,7 @@ ADD_SUBDIRECTORY(elmergrid)
 #  VAR enabledFeaturesText)
 #MESSAGE(STATUS "${enabledFeaturesText}")
 
+# 
 
 
 MESSAGE(STATUS "------------------------------------------------")
