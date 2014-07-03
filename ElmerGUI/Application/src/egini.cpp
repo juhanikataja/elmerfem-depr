@@ -56,7 +56,7 @@ EgIni::EgIni(QWidget *parent)
 #ifdef __APPLE__
   QString iniFileName = this->homePath +  "/edf/egini.xml";  
 #else
-  QString iniFileName = QCoreApplication::applicationDirPath() + "/share/ElmerGUI/edf/egini.xml";  // @TODO: fix path to share/ElmerGUI/edf
+  QString iniFileName = QCoreApplication::applicationDirPath() + "/../share/ElmerGUI/edf/egini.xml";  // @TODO: fix path to share/ElmerGUI/edf
 
   elmerGuiHome = QString(getenv("ELMERGUI_HOME"));
 

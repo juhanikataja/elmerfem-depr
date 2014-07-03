@@ -6902,7 +6902,7 @@ void MainWindow::loadDefinitions()
 #ifdef __APPLE__
   QString generalDefs = this->homePath +  "/edf/edf.xml";            
 #else
-  QString generalDefs = QCoreApplication::applicationDirPath() + "/share/ElmerGUI/edf/edf.xml";  // @TODO: fix path to share/ElmerGUI/edf
+  QString generalDefs = QCoreApplication::applicationDirPath() + "/../share/ElmerGUI/edf/edf.xml";  // @TODO: fix path to share/ElmerGUI/edf
 
   elmerGuiHome = QString(getenv("ELMERGUI_HOME"));
   
@@ -6965,7 +6965,7 @@ void MainWindow::loadDefinitions()
 #ifdef __APPLE__
   QDirIterator iterator( homePath+"/edf", QDirIterator::Subdirectories);  
 #else
-  QString additionalEdfs = QCoreApplication::applicationDirPath() + "/share/ElmerGUI/edf";  // @TODO: fix path to share/ElmerGUI/edf
+  QString additionalEdfs = QCoreApplication::applicationDirPath() + "/../share/ElmerGUI/edf";  // @TODO: fix path to share/ElmerGUI/edf
 
   if(!elmerGuiHome.isEmpty()) 
     additionalEdfs = elmerGuiHome + "/edf";  
