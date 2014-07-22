@@ -10,3 +10,4 @@ SET(CMAKE_C_COMPILER /usr/bin/gcc-4.8 CACHE FILE "")
 SET(CMAKE_CXX_COMPILER /usr/bin/g++-4.8 CACHE FILE "")
 SET(CMAKE_Fortran_COMPILER /usr/bin/gfortran-4.8 CACHE FILE "")
 
+SET(ELMER_SOLVER_HOME "/usr/share/elmersolver" CACHE PATH "")
