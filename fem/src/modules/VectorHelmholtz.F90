@@ -45,6 +45,8 @@ MODULE VectorHelmholtzUtils
    USE DefUtils
 
    COMPLEX(KIND=dp), PARAMETER :: im = (0._dp,1._dp)
+   REAL(KIND=dp), POINTER :: mat_work(:,:,:)
+   !COMPLEX(KIND=dp), POINTER :: mat_work_z(:,:,:)
 
    !INTERFACE SetDOFtoValue
      !MODULE PROCEDURE SetDOFtoValueR, SetDOFtoValueC
@@ -55,7 +57,8 @@ MODULE VectorHelmholtzUtils
    END INTERFACE
 
    INTERFACE GetPermittivity
-     MODULE PROCEDURE GetPermittivityR, GetPermittivityC ! , GetPermittivityCT ! >\todo: tensor version of permittivity material not done
+     MODULE PROCEDURE GetPermittivityR, GetPermittivityC, &
+         GetPermittivityRT, GetPermittivityCT ! >\todo: tensor version of permittivity material not done
   END INTERFACE
 
 CONTAINS
@@ -63,6 +66,7 @@ CONTAINS
 !------------------------------------------------------------------------------
   FUNCTION ComplexCrossProduct(v1,v2) RESULT(v3)
 !------------------------------------------------------------------------------
+    IMPLICIT NONE
     COMPLEX(KIND=dp) :: v1(3), v2(3), v3(3)
     v3(1) =  v1(2)*v2(3) - v1(3)*v2(2)
     v3(2) = -v1(1)*v2(3) + v1(3)*v2(1)
@@ -145,6 +149,7 @@ CONTAINS
 !------------------------------------------------------------------------------
   SUBROUTINE GetPermittivityR(Material,Acoef,n)
 !------------------------------------------------------------------------------
+    IMPLICIT NONE
     TYPE(ValueList_t), POINTER :: Material
     INTEGER :: n
     REAL(KIND=dp) :: Acoef(:)
@@ -172,8 +177,91 @@ CONTAINS
   END SUBROUTINE GetPermittivityR
 !------------------------------------------------------------------------------
 
+!------------------------------------------------------------------------------
+  SUBROUTINE GetPermittivityCT(Element,Acoef,n)
+!------------------------------------------------------------------------------
+    IMPLICIT NONE
+    TYPE(Element_t), POINTER :: Element
+    INTEGER :: n,i1,i2
+    COMPLEX(KIND=dp) :: Acoef(1:3,1:3,1:n), epsr(1:n)
+!------------------------------------------------------------------------------
+    LOGICAL :: Found, FirstTime = .TRUE.
+    REAL(KIND=dp) :: Avacuum
+    
+    SAVE Avacuum
+
+    IF ( FirstTime ) THEN
+      Avacuum = GetConstReal( CurrentModel % Constants, &
+        'Permittivity of Vacuum', Found )
+      IF(.NOT. Found ) Avacuum = 8.854187817e-12
+      FirstTime = .FALSE.
+    END IF
+
+    CALL ListGetRealArray( GetMaterial(Element), &
+      'Relative Permittivity Tensor', mat_work, 9, Element % NodeIndexes, Found )
+    
+    IF ( Found ) THEN
+      Acoef(1:3,1:3,1:n) = Avacuum * mat_work
+      CALL ListGetRealArray( GetMaterial(Element), &
+        'Relative Permittivity Tensor im', mat_work, 9, Element % NodeIndexes, Found)
+      
+      IF ( Found ) Acoef(1:3,1:3,1:n) = Acoef(1:3,1:3,1:n) + avacuum * im * mat_work
+      IF ( FirstTime ) write (*,*), 'Acoef = ', Acoef(1:3,1:3,1) ! DEBUG
+    ELSE
+      epsr = GetReal( GetMaterial(Element) , 'Relative Permittivity', Found)
+      IF (.NOT. Found) THEN
+        epsr = 1
+      ELSE
+        epsr = epsr + im * GetReal(GetMaterial(Element), 'Relative Permittivity im', Found)
+      END IF
+      DO i1 = 1,3
+        DO i2 = 1,n
+          Acoef(i1,i1,i2) = Avacuum * epsr(i2)
+        END DO
+      END DO
+    END IF
+  END SUBROUTINE GetPermittivityCT
+!------------------------------------------------------------------------------
+
+!------------------------------------------------------------------------------
+  SUBROUTINE GetPermittivityRT(Element,Acoef,n)
+!------------------------------------------------------------------------------
+    IMPLICIT NONE
+    TYPE(Element_t), POINTER :: Element
+    INTEGER :: n,i1,i2
+    REAL(KIND=dp) :: Acoef(1:3,1:3,1:n)
+    REAL(KIND=dp) :: epsr(1:n)
+!------------------------------------------------------------------------------
+    LOGICAL :: Found, FirstTime = .TRUE.
+    REAL(KIND=dp) :: Avacuum
+    
+    SAVE Avacuum
+
+    IF ( FirstTime ) THEN
+      Avacuum = GetConstReal( CurrentModel % Constants, &
+        'Permittivity of Vacuum', Found )
+      IF(.NOT. Found ) Avacuum = 8.854187817e-12
+      FirstTime = .FALSE.
+    END IF
+
+    CALL ListGetRealArray( GetMaterial(Element), &
+      'Relative Permittivity', mat_work, 9, Element % NodeIndexes, Found )
+    IF ( Found ) THEN
+      Acoef(1:3,1:3,1:n) = Avacuum * mat_work
+    ELSE
+      epsr = GetReal( GetMaterial(Element) , 'Relative Permittivity', Found)
+      if (.not. Found) epsr = 1
+      DO i1 = 1,3
+        DO i2 = 1,n
+          Acoef(i1,i1,i2) = Avacuum * epsr(i2)
+        END DO
+      END DO
+    END IF
+  END SUBROUTINE GetPermittivityRT
+
   SUBROUTINE GetPermittivityC(Material,Acoef,n)
 !------------------------------------------------------------------------------
+    IMPLICIT NONE
     TYPE(ValueList_t), POINTER :: Material
     INTEGER :: n
     COMPLEX(KIND=dp) :: Acoef(:)
@@ -228,6 +316,7 @@ CONTAINS
 !------------------------------------------------------------------------------
  SUBROUTINE GetInvPermeabilityR(Material,Acoef,n)
 !------------------------------------------------------------------------------
+    IMPLICIT NONE
     TYPE(ValueList_t), POINTER :: Material
     INTEGER :: n
     REAL(KIND=dp) :: Acoef(:)
@@ -261,6 +350,7 @@ CONTAINS
 !------------------------------------------------------------------------------
  SUBROUTINE GetInvPermeabilityC(Material,Acoef,n)
 !------------------------------------------------------------------------------
+    IMPLICIT NONE
     TYPE(ValueList_t), POINTER :: Material
     INTEGER :: n
     COMPLEX(KIND=dp) :: Acoef(:)
@@ -382,11 +472,12 @@ SUBROUTINE VectorHelmholtzSolver( Model,Solver,dt,Transient )
   COMPLEX(KIND=dp), ALLOCATABLE :: PrecDampCoeff(:)
   COMPLEX(KIND=dp), ALLOCATABLE :: STIFF(:,:), MASS(:,:), FORCE(:)
   COMPLEX(KIND=dp), ALLOCATABLE :: LOAD(:,:), Acoef(:), Tcoef(:)  ! \TODO Acoef and Tcoef could be (1,1)-tensors
+  COMPLEX(KIND=dp), ALLOCATABLE :: Acoef_t(:,:,:), Tcoef_t(:,:,:)
   REAL(KIND=dp), ALLOCATABLE :: RotM(:,:,:)
 
   COMPLEX(KIND=dp), ALLOCATABLE :: LamCond(:)
 
-  REAL (KIND=DP), POINTER :: Cwrk(:,:,:), Cwrk_im(:,:,:), LamThick(:)
+  REAL (KIND=dp), POINTER :: Cwrk(:,:,:), Cwrk_im(:,:,:), LamThick(:)
 
   LOGICAL ::   PiolaVersion, EdgeBasis,LFact,LFactFound
   INTEGER, POINTER :: Perm(:)
@@ -421,7 +512,7 @@ SUBROUTINE VectorHelmholtzSolver( Model,Solver,dt,Transient )
      ALLOCATE( FORCE(N), LOAD(3,N), STIFF(N,N), &
           MASS(N,N), Tcoef(N), RotM(3,3,N), &
           Acoef(N), LamCond(N), LamThick(N), &
-          PrecDampCoeff(1), STAT=istat )
+          PrecDampCoeff(1), Tcoef_t(3,3,N), STAT=istat )
      IF ( istat /= 0 ) THEN
         CALL Fatal( 'VectorHelmholtzSolver', 'Memory allocation error.' )
      END IF
@@ -510,7 +601,8 @@ CONTAINS
 
        IF ( ASSOCIATED(Material) ) THEN
          CALL GetInvPermeability(Material,Acoef,n)
-         CALL GetPermittivity(Material,Tcoef,n)
+         !CALL GetPermittivity(Material,Tcoef,n)
+         CALL GetPermittivity(Element,Tcoef_t,n)
        END IF
 
        BodyParams => GetBodyParams( Element )
@@ -520,8 +612,10 @@ CONTAINS
 
        !Get element local matrix and rhs vector:
        !----------------------------------------
-       CALL LocalMatrix( MASS, STIFF, FORCE, LOAD, &
-          Tcoef, Acoef, Element, n, nd, PiolaVersion )
+       CALL LocalMatrix_epsr_t( MASS, STIFF, FORCE, LOAD, &
+          Tcoef_t, Acoef, Element, n, nd, PiolaVersion )
+       !CALL LocalMatrix( MASS, STIFF, FORCE, LOAD, &
+          !Tcoef, Acoef, Element, n, nd, PiolaVersion )
 
        !Update global matrix and rhs vector from local matrix & vector:
        !---------------------------------------------------------------
@@ -668,6 +762,92 @@ CONTAINS
   END SUBROUTINE ConstrainUnused
 !------------------------------------------------------------------------------
 
+
+!-----------------------------------------------------------------------------
+  SUBROUTINE LocalMatrix_epsr_t( MASS, STIFF, FORCE, LOAD, &
+            Tcoef, Acoef, Element, n, nd, PiolaVersion )
+!------------------------------------------------------------------------------
+    IMPLICIT NONE
+    COMPLEX(KIND=dp) :: STIFF(:,:), FORCE(:), MASS(:,:)
+    COMPLEX(KIND=dp) :: LOAD(:,:), Tcoef(1:3,1:3,1:n), Acoef(:)
+    INTEGER :: n, nd, n_ind
+    TYPE(Element_t), POINTER :: Element
+    LOGICAL :: PiolaVersion
+
+    REAL(KIND=dp) :: WBasis(nd,3), RotWBasis(nd,3)
+    COMPLEX(KIND=dp) :: eps(1:3,1:3), muinv, L(3), DAMP(nd,nd)
+    REAL(KIND=dp) :: Basis(n),dBasisdx(n,3),DetJ
+
+    LOGICAL :: Stat
+    INTEGER :: t, i, j
+    TYPE(GaussIntegrationPoints_t) :: IP
+
+    TYPE(Nodes_t), SAVE :: Nodes
+    LOGICAL :: ONCE = .True.
+
+    CALL GetElementNodes( Nodes, Element )
+
+    STIFF = 0.0_dp
+    FORCE = 0.0_dp
+    MASS  = 0.0_dp
+    DAMP  = 0.0_dp
+
+    !Numerical integration:
+    !----------------------
+    IP = GaussPoints(Element, EdgeBasis=.TRUE., PReferenceElement=PiolaVersion)
+
+    DO t=1,IP % n
+       IF (PiolaVersion) THEN
+          stat = EdgeElementInfo( Element, Nodes, IP % U(t), IP % V(t), &
+               IP % W(t), DetF = DetJ, Basis = Basis, EdgeBasis = WBasis, &
+               RotBasis = RotWBasis, dBasisdx = dBasisdx, &
+               ApplyPiolaTransform = .TRUE.)
+       ELSE
+          stat = ElementInfo( Element, Nodes, IP % U(t), IP % V(t), &
+               IP % W(t), detJ, Basis, dBasisdx )
+
+          CALL GetEdgeBasis(Element, WBasis, RotWBasis, Basis, dBasisdx)
+       END IF
+
+       muinv = SUM( Basis(1:n) * Acoef(1:n) )
+       eps = 0.0_dp
+       do n_ind = 1,n
+         eps = eps + Basis(n_ind) * Tcoef(1:3,1:3,n_ind)
+       end do
+       if (once) then
+         write (*,*), eps
+         once = .FALSE.
+       end if
+
+       L = MATMUL( LOAD(1:3,1:n), Basis(1:n) )
+
+       ! Compute element stiffness matrix and force vector:
+       ! --------------------------------------------------
+       DO i = 1,nd
+         FORCE(i) = FORCE(i) + (SUM(L*WBasis(i,:)))* detJ*IP%s(t)
+
+         DO j = 1,nd
+           ! the mu^-1 curl u . curl v 
+           STIFF(i,j) = STIFF(i,j) + muinv * &
+              SUM(RotWBasis(i,:)*RotWBasis(j,:))*detJ*IP%s(t)
+
+           ! the term \omega^2 \epsilon u.v
+           MASS(i,j) = MASS(i,j) - Omega**2* &
+              SUM(matmul(eps,WBasis(J,:))*WBasis(i,:))*detJ*IP%s(t)
+         END DO
+       END DO
+    END DO
+    IF(HasPrecDampCoeff_im .OR. HasPrecDampCoeff_re) THEN
+      DAMP = PrecDampCoeff(1) * (STIFF(1:nd,1:nd) - MASS(1:nd,1:nd))
+      !DAMP = PrecDampCoeff(1) * (MASS(1:nd,1:nd))
+      !CALL DefaultUpdatePrec(STIFF(1:nd,1:nd) + MASS(1:nd,1:nd) + DAMP(1:nd,1:nd))
+    END IF
+   STIFF(1:nd,1:nd) = STIFF(1:nd,1:nd) + MASS(1:nd, 1:nd)
+   IF(HasPrecDampCoeff_im .OR. HasPrecDampCoeff_re) &
+     CALL DefaultUpdatePrec(STIFF(1:nd,1:nd) + DAMP(1:nd,1:nd))
+!------------------------------------------------------------------------------
+  END SUBROUTINE LocalMatrix_epsr_t
+!------------------------------------------------------------------------------
 
 !-----------------------------------------------------------------------------
   SUBROUTINE LocalMatrix( MASS, STIFF, FORCE, LOAD, &
