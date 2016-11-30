@@ -1,4 +1,5 @@
 services: docker
 
 script:
+  - date > .stamp
   - docker build -f buildtools/Dockerfile-test .
