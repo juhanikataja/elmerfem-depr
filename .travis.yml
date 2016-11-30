@@ -1,4 +1,4 @@
 services: docker
 
 script:
-  - docker build -t -f ./buildtools/Dockerfile-test
+  - docker build -f ./buildtools/Dockerfile-test
