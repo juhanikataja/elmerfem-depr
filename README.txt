@@ -21,3 +21,6 @@ is licensed under LGPL license.
 Elmer is mainly developed at CSC - IT Center for Science, Finland. However,
 there have been numerous contributions from other organizations and developers
 as well, and the project is open for new contributions.
+
+Here we have a small ffix.
+
