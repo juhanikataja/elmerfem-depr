@@ -6,6 +6,3 @@ ADD ci/precaches/opts-ubuntu-xenial.cmake /opts-ubuntu-xenial.cmake
 RUN ls
 RUN mkdir elmerbuild
 WORKDIR elmerbuild
-/*RUN cmake -C ../opts-ubuntu-xenial.cmake ../elmerfem*/
-/*RUN make*/
-/*RUN ctest -L quick*/
