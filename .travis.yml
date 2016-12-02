@@ -6,3 +6,7 @@ before_install:
 
 script:
   - docker run elmertest/xenial /bin/sh -c 'cmake -C ../opts-ubuntu-xenial.cmake ../elmerfem && make -j$(nproc) && ctest -L quick'
+
+notifications:
+  email: change
+    
