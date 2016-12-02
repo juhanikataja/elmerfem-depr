@@ -1,5 +1,10 @@
 services: docker
 
+before_install:
+  - docker build -t elmertest/xenial -f buildtools/Dockerfile-build .
+  - docker ps -a
+  - docker run elmertest/xenial cmake -C ../opts-ubuntu-xenial.cmake ../elmerfem
+
 script:
-  - date > .stamp
-  - docker build -f buildtools/Dockerfile-test .
+  - docker run elmertest/xenial make -j$(nproc)
+  - docker run elmertest/xenial ctest -L quick
