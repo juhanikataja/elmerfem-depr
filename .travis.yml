@@ -3,8 +3,6 @@ services: docker
 before_install:
   - docker build -t elmertest/xenial -f ci/Dockerfile-build .
   - docker ps -a
-  - docker run elmertest/xenial cmake -C ../opts-ubuntu-xenial.cmake ../elmerfem
 
 script:
-  - docker run elmertest/xenial make -j$(nproc)
-  - docker run elmertest/xenial ctest -L quick
+  - docker run elmertest/xenial /bin/sh -c 'cmake -C ../opts-ubuntu-xenial.cmake ../elmerfem && make -j$(nproc) && ctest -L quick'
