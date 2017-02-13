@@ -34,208 +34,306 @@
 ! *
 ! *****************************************************************************/
 
-!-------------------------------------------------------------------------------
-SUBROUTINE WhitneyAVSolver( Model,Solver,dt,Transient )
-!-------------------------------------------------------------------------------
+
+
+MODULE AVSolverUtils
   USE DefUtils
 
-  IMPLICIT NONE
-!------------------------------------------------------------------------------
-  TYPE(Solver_t) :: Solver
-  TYPE(Model_t) :: Model
-
-  REAL(KIND=dp) :: dt
-  LOGICAL :: Transient
-!------------------------------------------------------------------------------
-! Local variables
-!------------------------------------------------------------------------------
-  TYPE(Element_t), POINTER :: Element
-  TYPE(ValueList_t), POINTER :: SolverParams, BodyForce, Material, BC, BodyParams
-  TYPE(Mesh_t), POINTER :: Mesh
-
-  LOGICAL :: HasStabC, HasStab, HasStabM, Found, FoundMagnetization, &
-      SteadyGauge
-
-  REAL(KIND=dp), ALLOCATABLE :: LOAD(:,:), Acoef(:), &
-      STIFF(:,:), FORCE(:), Tcoef(:,:,:), MASS(:,:)
-  !$OMP THREADPRIVATE(LOAD, Acoef, Tcoef, STIFF, FORCE, MASS)
-  SAVE LOAD, Acoef, Tcoef, STIFF, FORCE, MASS
-
-  REAL(KIND=dp) :: gauge_penalize_c, gauge_penalize_m
-  !$OMP THREADPRIVATE(AllocationsDone)
-  LOGICAL :: AllocationsDone=.FALSE.
-
-  INTEGER :: istat, nActive, n, nd, nb, t
-
-  CALL Info('WhitneyAVSolver','-------------------------------------------',Level=8 )
-  CALL Info('WhitneyAVSolver','Solving the AV equations with edge elements',Level=5 )
-
-  SolverParams => GetSolverParams()
-
-  !-Keyword kungfu related to weak gauge conditions-------------------------------
-  SteadyGauge = GetLogical(GetSolverParams(), 'Use Lagrange Gauge', Found) .and. .not. Transient
-
-  IF (SteadyGauge) THEN
-    CALL Info("WhitneyAVSolver", "Utilizing Lagrange multipliers for gauge condition in steady state computation")
-    IF(.not. ListCheckPresent( SolverParams, 'Linear System Refactorize') ) THEN
-      CALL ListAddLogical( SolverParams, 'Linear System Refactorize', .TRUE. )
-    END IF
-  END IF
-
-  gauge_penalize_c = GetCReal(GetSolverParams(), 'Lagrange Gauge Penalization coefficient', HasStabC)
-  gauge_penalize_m = GetCReal(GetSolverParams(), 'Lagrange Gauge Penalization coefficient mass', HasStabM)
-  HasStab = HasStabC .OR. HasStabM
-
-  IF (HasStab .and. SteadyGauge) THEN
-    WRITE (Message, *), 'Lagrange Gauge penalization coefficient', gauge_penalize_c
-    CALL Info('WhitneyAVSolver', message)
-    WRITE (Message, *), 'Lagrange Gauge penalization coefficient mass', gauge_penalize_m
-    CALL Info('WhitneyAVSolver', message)
-  END IF
-  !-------------------------------------------------------------------------------
-
-  Mesh => GetMesh()
-
-  CALL DefaultInitialize()
-
-  !-Allocate storage for local matrices-------------------------------------------
-
-  IF ( .NOT. AllocationsDone ) THEN
-    N = Mesh % MaxElementDOFs
-    ALLOCATE(FORCE(N), &
-        LOAD(6,N),  &
-        STIFF(N,N), &
-        MASS(N,N), &
-       !  Tcoef(3,3,N), &
-        Acoef(N), &
-        STAT=istat)
-    IF ( istat /= 0) THEN
-      CALL Fatal('WhitneyAVSolver', 'Memory allocation error.')
-    END IF
-    AllocationsDone = .TRUE.
-  END IF
-  !-------------------------------------------------------------------------------
-
-  nActive = GetNOFActive()
-  ELEMENT_LOOP : DO t=1,nActive
-    Element => GetActiveElement(t)
-    n  = GetElementNOFNodes() ! kulmat
-    nd = GetElementNOFDOFs()  ! vapausasteet
-    nb = GetElementNOFBDOFs()  ! sisäiset vapausasteet
-
-
-
-    BodyForce => GetBodyForce(Element)
-    LOAD = 0.0d0
-    FoundMagnetization = .FALSE.
-    IF(ASSOCIATED(BodyForce)) THEN
-      CALL GetRealVector( BodyForce, Load(1:3,1:n), 'Current Density', Found )
-      CALL GetRealVector( BodyForce, Load(4:6,1:n), 'Magnetization', FoundMagnetization )
-    END IF
-
-    Material => GetMaterial( Element )
-    Acoef = 0.0d0
-    IF(ASSOCIATED(Material)) THEN
-      IF(.NOT. FoundMagnetization) THEN
-        CALL GetRealVector( Material, Load(4:6,1:n), &
-            'Magnetization', FoundMagnetization )
-      END IF
-
-      Acoef(1:n) = GetReal( Material, 'Reluctivity', Found)
-    END IF
-
-    CALL LocalMatrix(MASS, STIFF, FORCE, LOAD, Acoef)
-
-  END DO ELEMENT_LOOP
-
   CONTAINS
-
-    FUNCTION ReallocVec(A, m, istat) result(reallocated)
+      !-------------------------------------------------------------------------------
+      FUNCTION ReallocVec(A, m, istat) result(reallocated)
+        USE DefUtils
         IMPLICIT NONE
         REAL(KIND=dp), ALLOCATABLE, INTENT(INOUT) :: A(:)
         INTEGER, INTENT(IN) :: m
         INTEGER, INTENT(OUT) :: istat
-        LOGICAL, INTENT(OUT) :: reallocated
+        LOGICAL :: reallocated
 
         reallocated=.false.
+        istat = 0
 
-        IF(NOT(ALLOCATED(A))) THEN
-          ALLOCATE(A(m), istat=istat)
+        IF(.NOT. ALLOCATED(A)) THEN
+          ALLOCATE(A(m), stat=istat)
           reallocated = .true.
           RETURN
         ELSEIF(size(A,1)<m) THEN
           DEALLOCATE(A)
-          ALLOCATE(A(m), istat=istat)
+          ALLOCATE(A(m), stat=istat)
           reallocated = .true.
           RETURN
         ENDIF
 
-    END FUNCTION ReallocVec
+      END FUNCTION ReallocVec
 
-  FUNCTION ReallocMat(A, m, n, istat) result(reallocated)
+      !-------------------------------------------------------------------------------
+      FUNCTION ReallocMat(A, m, n, istat) result(reallocated)
+        USE DefUtils
+        IMPLICIT NONE
+        REAL(KIND=dp), ALLOCATABLE, INTENT(INOUT) :: A(:,:)
+        INTEGER, INTENT(IN) :: m, n
+        INTEGER, INTENT(OUT) :: istat
+        LOGICAL :: reallocated
+
+        reallocated = .false.
+
+        IF(.NOT. ALLOCATED(A)) THEN
+          ALLOCATE(A(m,n), stat=istat)
+          reallocated = .true.
+          RETURN
+        ELSEIF(size(A, 1)<m .or. size(A,2)<n) THEN
+          DEALLOCATE(A)
+          ALLOCATE(A(m,n), stat=istat)
+          reallocated = .true.
+          RETURN
+        ENDIF
+
+      END FUNCTION ReallocMat
+    SUBROUTINE LocalMatrix(STIFF, MASS, FORCE, LOAD, Acoef, Element, Solver, n_nodes, n_dofs, n_bubbles)
       IMPLICIT NONE
-      REAL(KIND=dp), ALLOCATABLE, INTENT(INOUT) :: A(:,:)
-      INTEGER, INTENT(IN) :: m, n
-      INTEGER, INTENT(OUT) :: istat
-      LOGICAL, INTENT(OUT) :: reallocated
-
-      reallocated = .false.
-
-      IF(NOT(ALLOCATED(A))) THEN
-        ALLOCATE(A(m), istat=istat)
-        reallocated = .true.
-        RETURN
-      ELSEIF(size(A, 1)<m .or. size(A,2)<n) THEN
-        DEALLOCATE(A)
-        ALLOCATE(A(m,n), istat=istat)
-        reallocated = .true.
-        RETURN
-      ENDIF
-
-  END FUNCTION ReallocMat
-
-    SUBROUTINE LocalMatrix(STIFF, MASS, FORCE, Acoef)
-      IMPLICIT NONE
-      REAL(KIND=dp) :: STIFF(:,:), FORCE(:), MASS(:,:)
-      REAL(KIND=dp) :: Acoef(:,:)
+      REAL(KIND=dp), INTENT(INOUT) :: STIFF(:,:), FORCE(:), MASS(:,:), LOAD(:,:), &
+           Acoef(:)
+      TYPE(Solver_t) :: Solver
+      INTEGER, INTENT(IN) :: n_nodes, n_dofs, n_bubbles
 
       REAL(KIND=dp), ALLOCATABLE, SAVE :: Basis(:), dBasisdx(:,:), &
-          WBasis(:,:), RotWBasis(:,:)
+           WBasis(:,:), RotWBasis(:,:)
+
+      REAL(KIND=dp) :: L(3), DetJ, M(3), nu
+
       TYPE(Nodes_t), SAVE :: Nodes
       TYPE(GaussIntegrationPoints_t) :: IP
-      !$OMP THREADPRIVATE(Basis, dBasisdx, WBasis, RotWBasis, Nodes)
+      TYPE(Element_t), POINTER :: Element
 
       INTEGER :: ndtot
-      LOGICAL, PARAMETER :: PIOLA=.TRUE.
-      INTEGER, PARAMETER :: EDGEBASISDEGREE=1
+#define DPIOLA .TRUE.
+#define DEDGEBASISDEGREE 1
+      LOGICAL :: reallocated, stat
 
-      INTEGER :: t
+      INTEGER :: t, i, j, np, p, q, istat, n
 
-      ndtot = nd+nb
+      n = n_nodes
+      ndtot = n_dofs + n_bubbles
 
       CALL GetElementNodesVec( Nodes, UElement=Element )
+
+      reallocated = ReallocVec(Basis, n, istat)
+      IF(istat /= 0) CALL Fatal('AVSolver::LocalMatrix', &
+           'Memory allocation error in basis storage reservation')
+      reallocated = ReallocMat(dbasisdx, n, 3, istat)
+      IF(istat /= 0) CALL Fatal('AVSolver::LocalMatrix', &
+           'Memory allocation error in basis storage reservation')
+      reallocated = ReallocMat(WBasis, ndtot, 3, istat)
+      IF(istat /= 0) CALL Fatal('AVSolver::LocalMatrix', &
+           'Memory allocation error in basis storage reservation')
+      reallocated = ReallocMat(RotWBasis, ndtot, 3, istat)
+      IF(istat /= 0) CALL Fatal('AVSolver::LocalMatrix', &
+           'Memory allocation error in basis storage reservation')
 
       STIFF = 0.0_dp
       MASS = 0.0_dp
       FORCE = 0.0_dp
 
-      CALL GaussPoints(Element, &
-          EdgeBasis=.TRUE., &
-          PReferenceElement=PIOLA, &
-          EdgeBasisDegree=EDGEBASISDEGREE)
+      IP = GaussPoints(Element, &
+           EdgeBasis=.TRUE., &
+           PReferenceElement=DPIOLA, &
+           EdgeBasisDegree=DEDGEBASISDEGREE)
 
-      np = n*Solver % DefDofs(GetElementFamily(Element), Element % BodyID, 1)
+      np = n * Solver % Def_Dofs(GetElementFamily(Element), Element % BodyID, 1)
 
-      DO t=1,IP % n
+      GAUSS_LOOP: DO t=1,IP % n
         stat = EdgeElementInfo( Element, Nodes, IP % U(t), IP % V(t), &
-            IP % W(t), DetF = DetJ, Basis = Basis, EdgeBasis = WBasis, &
-            RotBasis = RotWBasis, dBasisdx = dBasisdx, &
-            BasisDegree = EDGEBASISDEGREE, ApplyPiolaTransform = PIOLA)
-        A = SUM( Basis(1:n) * Acoef(1:n) )
+             IP % W(t), DetF = DetJ, Basis = Basis, EdgeBasis = WBasis, &
+             RotBasis = RotWBasis, dBasisdx = dBasisdx, &
+             BasisDegree = 1, ApplyPiolaTransform = .TRUE.)
+
+        ! Material term
+        nu = SUM( Basis(1:n) * Acoef(1:n) )
+
+        ! Load term
+        L = MATMUL(LOAD(1:3,1:n), Basis(1:n))
+        M = MATMUL(LOAD(4:6,1:n), Basis(1:n))
+
+        DO i = 1,ndtot-np
+          p = i+np
+          FORCE(p) = FORCE(p) + (SUM(L*WBasis(i,:)) + &
+               SUM(M*RotWBasis(i,:)))*detJ*IP%s(t) 
+          DO j = 1,ndtot-np
+            q = j+np
+            STIFF(p,q) = STIFF(p,q) + nu* &
+                 SUM(RotWBasis(i,:)*RotWBasis(j,:))*&
+                 detJ*IP%s(t)
+          END DO
+        END DO
+
+      END DO GAUSS_LOOP
+
+      ! DEBUG
+#ifdef DEBUG
+      print *, 'np = ', np
+      DO i = 1, ndtot-np
+        write (*,'(A, I1, A, *(E12.3))'),  'stiff(',i,') = ', stiff(i, 1:ndtot)
       END DO
+      write (*,'(A, *(E12.3))'),  'force = ', force(1:ndtot)
+#endif
 
-    END FUNCTION LocalMatrix
+    END SUBROUTINE LocalMatrix
 
-!-------------------------------------------------------------------------------
-END SUBROUTINE WhitneyAVSolver
-!-------------------------------------------------------------------------------
+    SUBROUTINE GetReluctivity(Material,Acoef,n)
+      !------------------------------------------------------------------------------
+      IMPLICIT NONE
+      TYPE(ValueList_t), POINTER :: Material
+      INTEGER :: n
+      REAL(KIND=dp) :: Acoef(:)
+      !------------------------------------------------------------------------------
+      LOGICAL :: Found, FirstTime = .TRUE., Warned = .FALSE.
+      REAL(KIND=dp) :: Avacuum
+
+      SAVE Avacuum 
+
+      IF ( FirstTime ) THEN
+        Avacuum = GetConstReal( CurrentModel % Constants, &
+             'Permeability of Vacuum', Found )
+        IF(.NOT. Found ) Avacuum = PI * 4.0d-7
+        FirstTime = .FALSE.
+      END IF
+
+      Acoef(1:n) = GetReal( Material, 'Relative Permeability', Found )
+      IF ( Found ) THEN
+        Acoef(1:n) = Avacuum * Acoef(1:n)
+      ELSE
+        Acoef(1:n) = GetReal( Material, 'Permeability', Found )
+      END IF
+      IF ( Found ) THEN
+        Acoef(1:n) = 1._dp / Acoef(1:n)
+      ELSE
+        Acoef(1:n) = GetReal( Material, 'Reluctivity', Found )
+      END IF
+      IF( .NOT. Found .AND. .NOT. Warned .AND. &
+           .NOT. ListCheckPresent(Material, 'H-B Curve') ) THEN
+        CALL Warn('GetReluctivityR','Give > Relative Permeability < or > Reluctivity <  for material!')
+        Warned = .TRUE.
+      END IF
+
+      !------------------------------------------------------------------------------
+    END SUBROUTINE GetReluctivity
+
+  END MODULE AVSolverUtils
+
+  SUBROUTINE AVSolver( Model,Solver,dt,Transient )
+    USE DefUtils
+    USE AVSolverUtils
+
+    IMPLICIT NONE
+    !------------------------------------------------------------------------------
+    TYPE(Solver_t) :: Solver
+    TYPE(Model_t) :: Model
+
+    REAL(KIND=dp) :: dt
+    LOGICAL :: Transient
+    !------------------------------------------------------------------------------
+    ! Local variables
+    !------------------------------------------------------------------------------
+    TYPE(Element_t), POINTER :: Element
+    TYPE(ValueList_t), POINTER :: SolverParams, BodyForce, Material, BC, BodyParams
+    TYPE(Mesh_t), POINTER :: Mesh
+
+    LOGICAL :: Found, FoundMagnetization
+
+    REAL(KIND=dp), ALLOCATABLE :: LOAD(:,:), Acoef(:), &
+         STIFF(:,:), FORCE(:), Tcoef(:,:,:), MASS(:,:)
+    !$OMP THREADPRIVATE(LOAD, Acoef, Tcoef, STIFF, FORCE, MASS)
+    SAVE LOAD, Acoef, Tcoef, STIFF, FORCE, MASS
+
+    ! LOGICAL :: HasStabC, HasStab, HasStabM, SteadyGauge
+    ! REAL(KIND=dp) :: gauge_penalize_c, gauge_penalize_m
+    !$OMP THREADPRIVATE(AllocationsDone)
+    LOGICAL :: AllocationsDone=.FALSE.
+
+    INTEGER :: istat, nActive, n, nd, nb, t
+
+    REAL(KIND=dp) :: Norm
+
+    CALL Info('AVSolver','-------------------------------------------',Level=8 )
+    CALL Info('AVSolver','Solving the AV equations with edge elements',Level=5 )
+
+    SolverParams => GetSolverParams()
+
+    Mesh => GetMesh()
+
+    CALL ResetTimer('AVAssembly')
+    CALL DefaultInitialize()
+
+    !-Allocate storage for local matrices-------------------------------------------
+    IF ( .NOT. AllocationsDone ) THEN
+      N = Mesh % MaxElementDOFs
+      ALLOCATE(FORCE(N), &
+           LOAD(6,N),  &
+           STIFF(N,N), &
+           MASS(N,N), &
+                                !  Tcoef(3,3,N), &
+           Acoef(N), &
+           STAT=istat)
+      IF ( istat /= 0) THEN
+        CALL Fatal('AVSolver', 'Memory allocation error.')
+      END IF
+      AllocationsDone = .TRUE.
+    END IF
+    !-------------------------------------------------------------------------------
+
+    nActive = GetNOFActive()
+    ELEMENT_LOOP : DO t=1,nActive
+      Element => GetActiveElement(t)
+      n  = GetElementNOFNodes() ! kulmat
+      nd = GetElementNOFDOFs()  ! vapausasteet
+      nb = GetElementNOFBDOFs()  ! sisäiset vapausasteet
+
+      BodyForce => GetBodyForce(Element)
+      LOAD = 0.0d0
+      FoundMagnetization = .FALSE.
+      IF(ASSOCIATED(BodyForce)) THEN
+        CALL GetRealVector( BodyForce, Load(1:3,1:n), 'Current Density', Found )
+      END IF
+
+      Material => GetMaterial( Element )
+      Acoef = 0.0d0
+      IF(ASSOCIATED(Material)) THEN
+        Acoef(1:n) = GetReal( Material, 'Reluctivity', Found)
+        ! CALL GetReluctivity(Material,Acoef,n)
+        CALL GetRealVector(Material, Load(4:6,1:n), 'Magnetization', Found )
+      END IF
+
+      CALL LocalMatrix(STIFF, MASS, FORCE, LOAD, Acoef, Element, Solver, n, nd, nb)
+
+      CALL DefaultUpdateEquations( STIFF, FORCE, UElement=Element)
+
+    END DO ELEMENT_LOOP
+
+    CALL CheckTimer('AVAssembly', DELETE=.TRUE.)
+    CALL DefaultFinishAssembly()
+    CALL DefaultDirichletBCs()
+
+    Norm = DefaultSolve()
+
+
+    !-------------------------------------------------------------------------------
+  END SUBROUTINE AVSolver
+
+SUBROUTINE AVSolver_init0(Model, Solver, dt, Transient)
+  USE DefUtils
+
+  IMPLICIT NONE
+
+  TYPE(Solver_t) :: Solver
+  TYPE(Model_t) :: Model
+  REAL(KIND=dp) :: dt
+  LOGICAL :: Transient
+
+  LOGICAL :: Found
+  TYPE(ValueList_t), POINTER :: SolverParams
+
+  SolverParams => GetSolverParams()
+
+  CALL Warn("AVSolver_init0", "Resetting element string to n:0 e:1 -brick b:3 -quad_face b:2")
+  CALL ListAddString( SolverParams, "Element", "n:0 e:1 -brick b:3 -quad_face b:2")
+END SUBROUTINE AVSolver_init0
+
