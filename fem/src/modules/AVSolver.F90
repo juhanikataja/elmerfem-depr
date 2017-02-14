@@ -456,7 +456,7 @@ SUBROUTINE AVSolver_threaded(Model, Solver, dt, Transient )
 
   LOGICAL :: Found
 
-  REAL(KIND=dp), ALLOCATABLE :: LOAD(:,:), Acoef(:), &
+  REAL(KIND=dp), POINTER :: LOAD(:,:), Acoef(:), &
        STIFF(:,:), FORCE(:), Tcoef(:,:,:), MASS(:,:)
   !$OMP THREADPRIVATE(LOAD, Acoef, Tcoef, STIFF, FORCE, MASS)
   SAVE LOAD, Acoef, Tcoef, STIFF, FORCE, MASS
