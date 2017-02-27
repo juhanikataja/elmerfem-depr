@@ -542,3 +542,137 @@ SUBROUTINE AVSolver_threaded(Model, Solver, dt, Transient )
   !-------------------------------------------------------------------------------
 
 END SUBROUTINE AVSolver_threaded
+
+SUBROUTINE AVSolver_colored(Model, Solver, dt, Transient )
+  USE DefUtils
+  USE AVSolverUtils
+
+  IMPLICIT NONE
+  !------------------------------------------------------------------------------
+  TYPE(Solver_t) :: Solver
+  TYPE(Model_t) :: Model
+
+  REAL(KIND=dp) :: dt
+  LOGICAL :: Transient
+  !------------------------------------------------------------------------------
+  ! Local variables
+  !------------------------------------------------------------------------------
+  TYPE(Element_t), POINTER :: Element
+  TYPE(ValueList_t), POINTER :: SolverParams, BodyForce, Material, BC, BodyParams
+  TYPE(Mesh_t), POINTER :: Mesh
+
+  TYPE(Graph_t) :: DualGraph
+  TYPE(GraphColour_t) :: GraphColouring
+  TYPE(Graph_t), POINTER :: ColourIndexList
+
+  LOGICAL :: Found, VecASM, MCAsm
+
+  REAL(KIND=dp), POINTER :: LOAD(:,:), Acoef(:), &
+       STIFF(:,:), FORCE(:), Tcoef(:,:,:), MASS(:,:)
+  !$OMP THREADPRIVATE(LOAD, Acoef, Tcoef, STIFF, FORCE, MASS)
+  SAVE LOAD, Acoef, Tcoef, STIFF, FORCE, MASS
+
+  ! LOGICAL :: HasStabC, HasStab, HasStabM, SteadyGauge
+  ! REAL(KIND=dp) :: gauge_penalize_c, gauge_penalize_m
+  LOGICAL :: AllocationsDone=.FALSE.
+  !$OMP THREADPRIVATE(AllocationsDone)
+
+  INTEGER :: istat, nActive, n, nd, nb, t
+  INTEGER :: col, cli, cti
+
+  REAL(KIND=dp) :: Norm
+
+  CALL Info('AVSolver','-------------------------------------------',Level=8 )
+  CALL Info('AVSolver','Solving the AV equations with edge elements',Level=5 )
+
+  SolverParams => GetSolverParams()
+
+  Mesh => GetMesh()
+
+  CALL DefaultInitialize()
+
+  VecAsm = .TRUE.
+  MCAsm = ListGetLogical( Solver % Values, 'MultiColour Solver', Found )
+
+  IF (VecAsm .AND. MCAsm .AND. Found) THEN
+    CALL Info('PoissonSolver', 'Vectorized assembly in use')
+    ColourIndexList => Solver % ColourIndexList
+  ELSE
+    CALL Fatal('AVSolver', 'Vectorized assembly not in use')
+  END IF
+
+  CALL ResetTimer('MGDynAssembly')
+
+  !$OMP PARALLEL DEFAULT(NONE) &
+  !$OMP SHARED(Solver, Model, dt, Transient, SolverParams, Mesh, nActive, ColourIndexList, cli, cti, VecAsm) &
+  !$OMP PRIVATE(Element, BodyForce, Material, BC, BodyParams, istat, &
+  !$OMP n, nd, nb, t, Found)
+  !-Allocate storage for local matrices-------------------------------------------
+  IF ( .NOT. AllocationsDone ) THEN
+    N = Mesh % MaxElementDOFs
+    ALLOCATE(FORCE(N), &
+         LOAD(6,N),  &
+         STIFF(N,N), &
+         MASS(N,N), &
+         Acoef(N), &
+         STAT=istat)
+    IF ( istat /= 0) THEN
+      CALL Fatal('AVSolver', 'Memory allocation error.')
+    END IF
+    AllocationsDone = .TRUE.
+  END IF
+  !-------------------------------------------------------------------------------
+
+  ! !$OMP SINGLE
+  ! nActive = GetNOFActive()
+  ! !$OMP END SINGLE
+
+  DO col=1,ColourIndexList % n
+
+    !$OMP SINGLE
+    CALL Info('AVSolver','Assembly of colour: '//TRIM(I2S(col)),Level=10)
+    cli = ColourIndexList % ptr(col)
+    cti = ColourIndexList % ptr(col+1)-1
+    ! Set current colour to Solver (normally done via call to GetNOFActive())
+    Solver % CurrentColour = col
+    !$OMP END SINGLE
+
+    !$OMP DO SCHEDULE(STATIC)
+    ELEMENT_LOOP : DO t=cli, cti
+      Element => GetActiveElement(t-cli+1)
+      n  = GetElementNOFNodes(Element) ! kulmat
+      nd = GetElementNOFDOFs(Element)  ! vapausasteet
+      nb = GetElementNOFBDOFs(Element)  ! sisäiset vapausasteet
+
+      BodyForce => GetBodyForce(Element)
+      LOAD = 0.0d0
+      IF(ASSOCIATED(BodyForce)) THEN
+        CALL GetRealVector( BodyForce, Load(1:3,1:n), 'Current Density', Found )
+      END IF
+
+      Material => GetMaterial( Element )
+      Acoef = 0.0d0
+      IF(ASSOCIATED(Material)) THEN
+        Acoef(1:n) = GetReal( Material, 'Reluctivity', Found)
+        CALL GetRealVector(Material, Load(4:6,1:n), 'Magnetization', Found )
+      END IF
+
+      CALL LocalMatrixThr(STIFF, MASS, FORCE, LOAD, Acoef, Element, Solver, n, nd, nb)
+
+      CALL DefaultUpdateEquations( STIFF, FORCE, UElement=Element)
+
+    END DO ELEMENT_LOOP
+    !$OMP END DO
+  END DO
+  !$OMP END PARALLEL
+
+  CALL CheckTimer('MGDynAssembly', DELETE=.TRUE.)
+  CALL DefaultFinishAssembly()
+  CALL DefaultDirichletBCs()
+
+  Norm = DefaultSolve()
+
+
+  !-------------------------------------------------------------------------------
+
+END SUBROUTINE AVSolver_colored
