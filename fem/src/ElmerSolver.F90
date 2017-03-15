@@ -75,7 +75,7 @@
      REAL(KIND=dp) :: s,dt,dtfunc
      REAL(KIND=dP), POINTER :: WorkA(:,:,:) => NULL()
      REAL(KIND=dp), POINTER, SAVE :: sTime(:), sStep(:), sInterval(:), sSize(:), &
-           steadyIt(:),nonlinIt(:),sPrevSizes(:,:),sPeriodic(:),sPar(:)
+           steadyIt(:),nonlinIt(:),sPrevSizes(:,:),sPeriodic(:),sScan(:),sPar(:)
 
      TYPE(Element_t),POINTER :: CurrentElement
 
@@ -114,7 +114,7 @@
 
      INTEGER :: iargc, NoArgs
 
-     INTEGER :: ExtrudeLevels, MeshIndex
+     INTEGER :: ExtrudeLayers, MeshIndex
      TYPE(Mesh_t), POINTER :: ExtrudedMesh
 
 #ifdef HAVE_TRILINOS
@@ -325,14 +325,18 @@ END INTERFACE
 
          ! Optionally perform simple extrusion to increase the dimension of the mesh
          !----------------------------------------------------------------------------------
-         ExtrudeLevels=GetInteger(CurrentModel % Simulation,'Extruded Mesh Levels',Found)
+         ExtrudeLayers = GetInteger(CurrentModel % Simulation,'Extruded Mesh Levels',Found) - 1 
+         IF( .NOT. Found ) THEN
+           ExtrudeLayers = GetInteger(CurrentModel % Simulation,'Extruded Mesh Layers',Found)
+         END IF
+           
          IF (Found) THEN
-            IF(ExtrudeLevels>1) THEN
+            IF(ExtrudeLayers > 1) THEN
                ExtrudedMeshName = GetString(CurrentModel % Simulation,'Extruded Mesh Name',Found)
                IF (Found) THEN
-                  ExtrudedMesh => MeshExtrude(CurrentModel % Meshes, ExtrudeLevels-2, ExtrudedMeshName)
+                  ExtrudedMesh => MeshExtrude(CurrentModel % Meshes, ExtrudeLayers-1, ExtrudedMeshName)
                ELSE
-                  ExtrudedMesh => MeshExtrude(CurrentModel % Meshes, ExtrudeLevels-2)
+                  ExtrudedMesh => MeshExtrude(CurrentModel % Meshes, ExtrudeLayers-1)
                END IF
                DO i=1,CurrentModel % NumberOfSolvers
                   IF(ASSOCIATED(CurrentModel % Solvers(i) % Mesh,CurrentModel % Meshes)) &
@@ -469,14 +473,16 @@ END INTERFACE
 
        IF ( FirstLoad ) &
          ALLOCATE( sTime(1), sStep(1), sInterval(1), sSize(1), &
-             steadyIt(1), nonLinit(1), sPrevSizes(1,5), sPeriodic(1), sPar(1) )
+         steadyIt(1), nonLinit(1), sPrevSizes(1,5), sPeriodic(1), &
+         sPar(1), sScan(1) )
 
        dt   = 0._dp
 
        sTime = 0._dp
        sStep = 0
        sPeriodic = 0._dp
-
+       sScan = 0._dp
+       
        sSize = dt
        sPrevSizes = 0_dp
 
@@ -1006,6 +1012,10 @@ END INTERFACE
        CALL VariableAdd( Mesh % Variables, Mesh, Solver, &
                'coupled iter', 1, steadyIt )
 
+       IF( ListCheckPresentAnySolver( CurrentModel,'Scanning Loops') ) THEN
+         CALL VariableAdd( Mesh % Variables, Mesh, Solver, 'scan', 1, sScan )
+       END IF
+               
        sPar(1) = 1.0_dp * ParEnv % MyPe 
        CALL VariableAdd( Mesh % Variables, Mesh, Solver, 'Partition', 1, sPar ) 
 
