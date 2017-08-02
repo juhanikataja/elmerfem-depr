@@ -107,3 +107,5 @@ End
 
 
 Solver 1 :: Reference Norm = 0.24606097E-01
+Solver 1 :: Reference Norm tolerance = 1.0e-3
+
