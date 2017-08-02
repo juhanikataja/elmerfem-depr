@@ -274,7 +274,7 @@ End
 Solver 6 :: Reference Norm = Real 2.11721151E-04
 Solver 6 :: Reference Norm Tolerance = Real 1E-03
 Solver 7 :: Reference Norm = Real 8.68603424E+03
-Solver 7 :: Reference Norm Tolerance = Real 1E-03
+Solver 7 :: Reference Norm Tolerance = Real 1E-02
 
 $fprintf( stderr, "TEST CASE 1\n");
 RUN

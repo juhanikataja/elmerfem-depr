@@ -283,4 +283,4 @@ End
 
 
 Solver 2 :: Reference Norm = 7.22162306
-Solver 2 :: Reference Norm Tolerance = 1.0e-4
+Solver 2 :: Reference Norm Tolerance = 1.0e-3
