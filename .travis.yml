@@ -4,7 +4,7 @@ before_install:
 - docker ps -a
 script:
 - docker run elmertest/xenial /bin/sh -c 'cmake -C ../opts-ubuntu-xenial.cmake ../elmerfem
-  && make -j$(nproc) && ctest -L quick'
+  && make -j$(nproc) && ctest'
 notifications:
   email: change
   flowdock:
