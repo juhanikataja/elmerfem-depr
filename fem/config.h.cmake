@@ -89,6 +89,8 @@
 /* Define if you have a OpenMP 4.5 SIMD compiler */
 #cmakedefine HAVE_OPENMP45
 
+#cmakedefine HAVE_PCRE
+
 /* Macro expansions based on compiler OpenMP feature support */
 #if defined(HAVE_OPENMP45)
 #define _ELMER_OMP $OMP

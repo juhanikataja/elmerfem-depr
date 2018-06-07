@@ -241,6 +241,9 @@ END INTERFACE
 #ifdef HAVE_MKL
          CALL Info( 'MAIN', ' Intel MKL linked in.' )
 #endif
+#ifdef HAVE_PCRE
+         CALL Info( 'MAIN', ' PCRE linked in.' )
+#endif
          CALL Info( 'MAIN', '=============================================================')
        END IF
 
