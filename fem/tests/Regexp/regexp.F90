@@ -31,41 +31,19 @@
   REAL(KIND=dp) :: dt
   LOGICAL :: TransientSimulation
   !------------------------------------------------------------------------------ 
-  integer(kind=c_int), parameter :: maxmatch=10
-  integer(kind=c_int) :: ovector(3*maxmatch)
-  type(reCompiled_t) :: comp
+  type(regex_t) :: regex
   character(len=MAX_NAME_LEN), allocatable :: str_in
   character(len=:, kind=c_char), allocatable :: str, last_str
   character(len=:, kind=c_char), allocatable :: regstr
   logical :: found
 
   regstr = "(.+) \| (.+) -- (.+) \((\d+)\)"  // c_null_char
-  ovector = 0
-  ! regstr = "\((\d+)\)"  // c_null_char
   str = ListGetString(GetSolverParams(), "str to parse", found)
 
-  ! str = trim(str_in) // c_null_char
   if (found) then
-    comp = RegCompile(regstr, 0)
-    ovector = RegMatch(str, comp, maxmatch)
+    call regex % match(str, regstr, 30)
   end if
-  print *, str
-  print *, regstr
-
-  block
-    integer :: i
-    do i = 1, maxmatch, 2
-      associate (startpos => ovector(i)+1, &
-            sublen => ovector(i+1)-ovector(i))
-        if(sublen < 1) exit
-        last_str = str(startpos:startpos+sublen-1)
-        print *, 'startpos:', startpos, 'sublen: ', sublen
-        print *, last_str
-      end associate
-    end do
-    if(last_str /= "3") stop
-  end block
-
+  if (regex % getsub(regex % nummatch()) /= "3") stop
 
 !------------------------------------------------------------------------------
    END SUBROUTINE RegexpTester
