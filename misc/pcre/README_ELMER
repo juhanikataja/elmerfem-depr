@@ -1,0 +1,14 @@
+PCRE Elmer notice
+=================
+
+This directory structure does not contain the entire pcre library sources. Most
+notably some of the autoconf build files and documentation has been removed in
+order to minimize source code footprint of Elmer. 
+
+For documentation of the PCRE library, one is adviced to see the full source
+code package located under https://www.pcre.org.
+
+---
+Juhani Kataja
+CSC - IT Center for Science
+2018-06-08
