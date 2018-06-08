@@ -3225,6 +3225,138 @@ CONTAINS
   
 !------------------------------------------------------------------------------
 !> Given a string containing comma-separated variablenames, reads the strings
+!> and obtains the corresponging variables to the handle. 
+!------------------------------------------------------------------------------
+  SUBROUTINE ListParseStrToHandle( ptr, Handle )
+!------------------------------------------------------------------------------
+    TYPE(ValueListEntry_t), POINTER :: ptr
+    TYPE(ValueHandle_t) :: Handle
+!------------------------------------------------------------------------------    
+    CHARACTER(LEN=MAX_NAME_LEN), POINTER :: str
+    INTEGER :: slen, count
+    LOGICAL :: SomeAtIp, SomeAtNodes, GotVar
+    INTEGER :: i,j,k,n,l,l0,l1,k0,k1,k2,dofs
+    TYPE(Variable_t), POINTER :: Var
+    TYPE(ValueListEntry_t), POINTER :: funitem
+
+
+    str => Ptr % DependName
+    slen = Ptr % DepNameLen
+
+
+    Handle % DepAtIp = .FALSE.
+    Handle % DepAtNodes = .FALSE.
+
+    count=0
+    l0=1
+    IF(slen<=0) RETURN
+
+    DO WHILE( .TRUE. )
+      ! Remove zeros ahead
+      DO WHILE( str(l0:l0) == ' ' )
+        l0 = l0 + 1
+        IF ( l0 > slen ) EXIT
+      END DO
+      IF ( l0 > slen ) EXIT
+
+      ! Scan only until next comma
+      l1 = INDEX( str(l0:slen),',')
+      IF ( l1 > 0 ) THEN
+        l1=l0+l1-2
+      ELSE
+        l1=slen
+      END IF
+
+      IF ( str(l0:l1) == 'coordinate' ) THEN
+        Handle % DepVarTable(count+1) % Variable => VariableGet( CurrentModel % Variables,"coordinate 1")
+        Handle % DepVarTable(count+2) % Variable => VariableGet( CurrentModel % Variables,"coordinate 2")
+        Handle % DepVarTable(count+3) % Variable => VariableGet( CurrentModel % Variables,"coordinate 3")
+        Handle % DepVarProc(count+1:count+3) = 0
+        Handle % DepVarSize(count+1:count+3) = 0
+        count = count + 3 
+        Handle % DepAtNodes = .TRUE.
+      ELSE
+        count = count + 1
+
+        k0 = INDEX(str(l0:l1),'(')
+        IF( k0 == 0 ) THEN
+          Var => VariableGet( CurrentModel % Variables,str(l0:l1) )
+          GotVar = ASSOCIATED( Var )         
+          Handle % DepVarProc(count) = 0
+          Handle % DepVarSize(count) = 0
+        ELSE
+          k0 = k0 + l0 - 1
+          PRINT *,'function:',str(l0:k0-1)
+          k1 = k0
+          DO WHILE( str(k1:k1) /= ')' )
+            k1 = k1 + 1
+            IF ( k1 > slen ) EXIT
+          END DO
+                    
+          PRINT *,'variable:',str(k0+1:k1-1)          
+          Var => VariableGet( CurrentModel % Variables,str(k0+1:k1-1) )
+          GotVar = ASSOCIATED( Var )         
+
+          IF( .NOT. ASSOCIATED( Var % Solver ) ) THEN
+            CALL Fatal('ListParseStrToHandle','Currently the proc is searched in the var % solver!')
+          END IF
+          funitem => ListFind( Var % Solver % Values, str(l0:k0-1) )
+          IF( .NOT. ASSOCIATED( funitem ) ) THEN
+            funitem => ListFind( Handle % List, str(l0:k0-1) )
+            IF( .NOT. ASSOCIATED( funitem ) ) THEN
+              CALL Fatal('ListParseStrToHandle','Could not find the keyword in solver or this section: '//TRIM(str(l0:k0-1)))
+            END IF
+          END IF
+
+          PRINT *,'proc:',funitem % PROCEDURE
+          
+          Handle % DepVarProc(count) = funitem % PROCEDURE
+          Handle % DepVarSize(count) = MAX( 1, funitem % Fdim )   
+          
+          k2 = k1+1
+          DO k2=k1+1,l1            
+            IF( str(k2:k2) == ':') THEN
+              READ(str(k2+1:l1),*) dofs
+              Handle % DepVarSize(count) = dofs
+              PRINT *,'dofs:',dofs
+              EXIT
+            END IF
+          END DO          
+        END IF
+
+        IF( .NOT. GotVar ) THEN
+          CALL Info('ListParseStrToHandle','Parsed variable '//TRIM(I2S(count+1))//' of '//str(1:slen),Level=3)
+          CALL Info('ListParseStrToHandle','Parse counters: '&
+              //TRIM(I2S(l0))//', '//TRIM(I2S(l1))//', '//TRIM(I2S(slen)),Level=10)
+          CALL Fatal('ListParseStrToHandle', 'Can''t find independent variable:['// &
+              TRIM(str(l0:l1))//'] for dependent variable:['//TRIM(Handle % Name)//']' ) 
+        END IF
+        Handle % DepVarTable(count) % Variable => Var
+        
+        IF( Var % TYPE == Variable_on_gauss_points ) THEN
+          Handle % DepAtIp = .TRUE.
+        ELSE
+          Handle % DepAtNodes = .TRUE.
+        END IF
+
+      END IF
+
+      ! New start after the comma
+      l0 = l1+2
+      IF ( l0 > slen ) EXIT       
+    END DO
+
+    Handle % DepVarN = count
+
+    IF( Handle % DepAtIp ) Handle % EvaluateAtIp = .TRUE.
+     
+!------------------------------------------------------------------------------
+  END SUBROUTINE ListParseStrToHandle
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+!> Given a string containing comma-separated variablenames, reads the strings
 !> and obtains the corresponging variables to a table.
 !------------------------------------------------------------------------------
   SUBROUTINE ListParseStrToVars( str, slen, name, count, VarTable, &
@@ -3296,6 +3428,8 @@ CONTAINS
    END SUBROUTINE ListParseStrToVars
 !------------------------------------------------------------------------------
 
+
+   
 !-------------------------------------------------------------------------------------
 !> Given a table of variables and a node index return the variable values on the node.
 !-------------------------------------------------------------------------------------
@@ -3375,7 +3509,104 @@ CONTAINS
    END SUBROUTINE VarsToValuesOnNodes
  !------------------------------------------------------------------------------
     
+!-------------------------------------------------------------------------------------
+!> Given the handle with table of variables + a node index return the variable values on the node.
+!-------------------------------------------------------------------------------------
+  SUBROUTINE HandleVarsToValuesOnNodes( Handle, ind, T, count, AllGlobal )
+!------------------------------------------------------------------------------
+     TYPE(ValueHandle_t) :: Handle
+     INTEGER :: ind
+     INTEGER :: count
+     REAL(KIND=dp) :: T(:)
+     LOGICAL :: AllGlobal
+!------------------------------------------------------------------------------
+     TYPE(Element_t), POINTER :: Element
+     INTEGER :: i,j,k,n,k1,l,varsize,vari,dofs
+     TYPE(Variable_t), POINTER :: Var
+     LOGICAL :: Failed
+     REAL(KIND=dp) :: val,vals(10)
+     
+     count = 0
+     AllGlobal = .TRUE.
+     Failed = .FALSE.
+     
+     DO Vari = 1, Handle % DepVarN 
+       Var => Handle % DepVarTable(Vari) % Variable
+       dofs = Var % Dofs
+       Varsize = SIZE( Var % Values ) / dofs
 
+       IF( Varsize == 1 ) THEN
+         DO l=1,dofs
+           count = count + 1
+           T(count) = Var % Values(l)
+         END DO
+       ELSE
+         AllGlobal = .FALSE.
+         k1 = ind
+         
+         IF ( Var % TYPE == Variable_on_gauss_points ) THEN
+           IF( Handle % DepVarSize(Vari) > 0 ) THEN
+             count = count + Handle % DepVarSize(Vari)
+           ELSE
+             count = count + dofs
+           END IF
+           CYCLE
+         ELSE IF( Var % TYPE == Variable_on_elements ) THEN
+           Element => CurrentModel % CurrentElement
+           IF( ASSOCIATED( Element ) ) k1 = Element % ElementIndex
+         ELSE IF ( Var % TYPE == Variable_on_nodes_on_elements ) THEN
+           Element => CurrentModel % CurrentElement
+           IF ( ASSOCIATED(Element) ) THEN
+             IF ( ASSOCIATED(Element % DGIndexes) ) THEN
+               n = Element % TYPE % NumberOfNodes
+               IF ( SIZE(Element % DGIndexes)==n ) THEN
+                 DO i=1,n
+                   IF ( Element % NodeIndexes(i)==ind ) THEN
+                     k1 = Element % DGIndexes(i)
+                     EXIT
+                   END IF
+                 END DO
+               END IF
+             END IF
+           END IF
+         END IF         
+
+         IF ( ASSOCIATED(Var % Perm) ) k1 = Var % Perm(k1)         
+
+         dofs = Var % Dofs
+         IF ( k1 <=0 .OR. k1 > VarSize ) THEN
+           Failed = .TRUE.
+           DO l=1,dofs
+             count = count + 1
+             T(count) = HUGE(1.0_dp)           
+           END DO
+           RETURN
+                  
+         ELSE IF( Handle % DepVarSize(Vari) > 0 ) THEN
+           count = count + 1
+
+           IF( dofs > 1 ) THEN
+             DO l=1,dofs
+               vals(l) = Var % Values(Var % Dofs*(k1-1)+l)
+             END DO
+           ELSE
+             vals(1) = Var % Values(k1)
+           END IF
+           ! internal udf function for nodes
+           T(count) = ExecRealFunction( Handle % DepVarProc(Vari), CurrentModel, ind, vals(1:dofs) )           
+         ELSE 
+           DO l=1,dofs
+             count = count + 1
+             T(count) = Var % Values(Var % Dofs*(k1-1)+l)
+           END DO
+         END IF
+       END IF
+     END DO
+     
+   END SUBROUTINE HandleVarsToValuesOnNodes
+ !------------------------------------------------------------------------------
+
+   
 !-------------------------------------------------------------------------------------
 !> Given a table of variables return the variable values on the gauss point.
 !> This only deals with the gauss point variables, all other are already treated. 
@@ -3421,6 +3652,70 @@ CONTAINS
    END SUBROUTINE VarsToValuesOnIps
  !------------------------------------------------------------------------------
 
+!-------------------------------------------------------------------------------------
+!> Given a table of variables return the variable values on the gauss point.
+!> This only deals with the gauss point variables, all other are already treated. 
+!-------------------------------------------------------------------------------------
+  SUBROUTINE HandleVarsToValuesOnIps( Handle, ind, T, count )
+!------------------------------------------------------------------------------
+     TYPE(ValueHandle_t) :: Handle
+     INTEGER :: ind
+     INTEGER :: count
+     REAL(KIND=dp) :: T(:)
+!------------------------------------------------------------------------------
+     TYPE(Element_t), POINTER :: Element
+     INTEGER :: i,j,k,n,k1,l,varsize,vari,dofs
+     TYPE(Variable_t), POINTER :: Var
+     LOGICAL :: Failed
+     REAL(KIND=dp) :: val, vals(10)
+     
+     count = 0
+     Failed = .FALSE.
+     
+     DO Vari = 1, Handle % DepVarN
+       Var => Handle % DepVarTable(Vari) % Variable
+
+       IF ( Var % TYPE == Variable_on_gauss_points ) THEN         
+         k1 = 0
+         Element => CurrentModel % CurrentElement
+         IF ( ASSOCIATED(Element) ) THEN
+           k1 = Var % Perm( Element % ElementIndex ) + ind
+         END IF
+
+         dofs = Var % Dofs
+         Varsize = SIZE( Var % Values ) / dofs
+         IF ( k1 <= 0 .AND. k1 > VarSize ) THEN
+           RETURN
+         END IF
+         
+         IF( Handle % DepVarSize(Vari) > 0 ) THEN
+           count = count + 1
+           IF( dofs > 1 ) THEN
+             DO l=1,dofs
+               vals(l) = Var % Values(Var % Dofs*(k1-1)+l)
+             END DO
+           ELSE
+             vals(1) = Var % Values(k1)
+           END IF
+           ! internal udf function for IPs
+           T(count) = ExecRealFunction( Handle % DepVarProc(Vari), CurrentModel, ind, vals(1:dofs) )           
+         ELSE
+           DO l=1,Var % DOFs
+             count = count + 1
+             T(count) = Var % Values(Var % Dofs*(k1-1)+l)
+           END DO
+         END IF
+       ELSE
+         IF( Handle % DepVarSize(Vari) > 0 ) THEN
+           count = count + Handle % DepVarSize(Vari)
+         ELSE
+           count = count + Var % Dofs
+         END IF
+       END IF
+     END DO
+     
+   END SUBROUTINE HandleVarsToValuesOnIps
+ !------------------------------------------------------------------------------
 
    
 !------------------------------------------------------------------------------
@@ -3610,7 +3905,9 @@ CONTAINS
 
                WRITE( Message, * ) 'Can''t find independent variable:[', &
                    TRIM(ptr % DependName(l0:l1)),']'
-               CALL Fatal( 'ListCheckGlobal', Message )
+               CALL Warn( 'ListCheckGlobal', Message )
+               IsGlobal = .FALSE.
+               RETURN
              END IF
 
              IF( SIZE( Variable % Values ) > 1 ) THEN
@@ -4092,6 +4389,12 @@ CONTAINS
      Handle % EvaluateAtIp = .FALSE.       
      Handle % List => NULL()
      Handle % Element => NULL()
+
+     !Handle % DepVarProc = NULL()
+     Handle % DepVarSize = 0
+     Handle % DepAtIp = .FALSE.
+     Handle % DepAtNodes = .FALSE.
+     
      IF (.NOT. ASSOCIATED( Ptr ) ) THEN
        Handle % Ptr => ListAllocate()
      END IF
@@ -4482,6 +4785,8 @@ CONTAINS
          ElementSame
      TYPE(Element_t), POINTER :: PElement
 !------------------------------------------------------------------------------
+
+#define HANDLEDEP 
      
      ! If value is not present anywhere then return False
      IF( Handle % NotPresentAnywhere ) THEN
@@ -4517,7 +4822,7 @@ CONTAINS
      ! Bulk and boundary elements are treated separately.
      List => ElementHandleList( PElement, Handle, ListSame, ListFound ) 
      
-
+     
      ! If the provided list is the same as last time, also the keyword will
      ! be sitting at the same place, otherwise find it in the new list
      IF( ListSame ) THEN
@@ -4581,6 +4886,20 @@ CONTAINS
            Handle % EvaluateAtIp = .FALSE.
          END IF
        END IF
+
+#ifdef HANDLEDEP
+       IF( ptr % TYPE == LIST_TYPE_VARIABLE_SCALAR .OR. &
+           ptr % TYPE == LIST_TYPE_VARIABLE_SCALAR_STR .OR. &
+           ptr % TYPE == LIST_TYPE_CONSTANT_SCALAR .OR. & 
+           ptr % TYPE == LIST_TYPE_CONSTANT_SCALAR_STR .OR. &
+           ptr % TYPE == LIST_TYPE_VARIABLE_TENSOR .OR. &
+           ptr % TYPE == LIST_TYPE_VARIABLE_TENSOR_STR ) THEN
+
+         PRINT *,'goint to parse',ASSOCIATED( Ptr )
+         CALL ListParseStrToHandle( Ptr, Handle )
+         PRINT *,'done parse'
+       END IF
+#endif      
      ELSE
        IF( Handle % UnfoundFatal ) THEN
          CALL Fatal('ListGetElementReal','Could not find list for required keyword: '//TRIM(Handle % Name))
@@ -4595,19 +4914,18 @@ CONTAINS
        RETURN
      END IF
 
-
      
-     
+#ifndef HANDLEDEP
      IF( ptr % TYPE == LIST_TYPE_VARIABLE_SCALAR .OR. &
          ptr % TYPE == LIST_TYPE_VARIABLE_SCALAR_STR ) THEN
-
        CALL ListParseStrToVars( Ptr % DependName, Ptr % DepNameLen, &
            Handle % Name, VarCount, VarTable, SomeAtIp, SomeAtNodes )
-
+       
        ! If some input parameter is given at integration point we don't have any option other than evaluate things on IPs
        IF( SomeAtIP ) Handle % EvaluateAtIp = .TRUE.
      END IF
-
+#endif
+     
      
      ! Either evaluate parameter directly at IP, 
      ! or first at nodes and then using basis functions at IP.
@@ -4664,7 +4982,11 @@ CONTAINS
            DO i=1,n
              k = NodeIndexes(i)
 
+#ifdef HANDLEDEP
+             CALL HandleVarsToValuesOnNodes( Handle, k, T, j, AllGlobal )
+#else
              CALL VarsToValuesOnNodes( VarCount, VarTable, k, T, j, AllGlobal )
+#endif
              
              IF( AllGlobal ) THEN
                CALL Fatal('ListGetElementReal','Constant lists should not need to be here')
@@ -4686,13 +5008,22 @@ CONTAINS
            T(j) = SUM( Basis(1:n) *  Handle % ParValues(j,1:n) )
          END DO
 
-         ! This one only deals with the variables on IPs, nodal ones have been fecthed already
+         ! This one only deals with the variables on IPs, nodal ones have been fetched already
+#ifdef HANDLEDEP
+         IF( Handle % DepAtIp ) THEN
+           IF( .NOT. PRESENT( GaussPoint ) ) THEN
+             CALL Fatal('ListGetElementReal','Evaluation of ip fields requires gauss points as parameter!')
+           END IF
+           CALL HandleVarsToValuesOnIps( Handle, GaussPoint, T, j )
+         END IF           
+#else
          IF( SomeAtIp ) THEN
            IF( .NOT. PRESENT( GaussPoint ) ) THEN
              CALL Fatal('ListGetElementReal','Evaluation of ip fields requires gauss points as parameter!')
            END IF
            CALL VarsToValuesOnIps( VarCount, VarTable, GaussPoint, T, j )
          END IF         
+#endif
          
          ! there is no node index, so use zero
          j = 0 
@@ -4711,14 +5042,22 @@ CONTAINS
            T(j) = SUM( Basis(1:n) *  Handle % ParValues(j,1:n) )
          END DO
          
-         ! This one only deals with the variables on IPs, nodal ones have been fecthed already
+         ! This one only deals with the variables on IPs, nodal ones have been fetched already
+#ifdef HANDLEDEP
+         IF( Handle % DepAtIp ) THEN
+           IF( .NOT. PRESENT( GaussPoint ) ) THEN
+             CALL Fatal('ListGetElementReal','Evaluation of ip fields requires gauss points as parameter!')
+           END IF
+           CALL HandleVarsToValuesOnIps( Handle, GaussPoint, T, j )
+         END IF
+#else
          IF( SomeAtIp ) THEN
            IF( .NOT. PRESENT( GaussPoint ) ) THEN
              CALL Fatal('ListGetElementReal','Evaluation of ip fields requires gauss points as parameter!')
            END IF
            CALL VarsToValuesOnIps( VarCount, VarTable, GaussPoint, T, j )
          END IF
-         
+#endif    
          
          ! there is no node index, so use zero (it could be the gauss point index as well!)
          j = 0 
@@ -4815,13 +5154,19 @@ CONTAINS
 
          CASE( LIST_TYPE_VARIABLE_SCALAR )
            CALL ListPushActiveName(Handle % name)
-
+           
+#ifndef HANDLEDEP
            CALL ListParseStrToVars( Ptr % DependName, Ptr % DepNameLen, &
                Handle % Name, VarCount, VarTable, SomeAtIp, SomeAtNodes )
+#endif
            
            DO i=1,n
              k = NodeIndexes(i)
+#ifdef HANDLEDEP
+             CALL HandleVarsToValuesOnNodes( Handle, k, T, j, AllGlobal )
+#else
              CALL VarsToValuesOnNodes( VarCount, VarTable, k, T, j, AllGlobal )
+#endif
              
              IF ( .NOT. ANY( T(1:j) == HUGE(1.0_dp) ) ) THEN
                IF ( ptr % PROCEDURE /= 0 ) THEN
@@ -4873,13 +5218,20 @@ CONTAINS
            k = LEN_TRIM(cmd)
            CALL matc( cmd, tmp_str, k )
 
+           
+#ifndef HANDLEDEP
            CALL ListParseStrToVars( Ptr % DependName, Ptr % DepNameLen, &
                Handle % Name, VarCount, VarTable, SomeAtIp, SomeAtNodes )
+#endif
            
            DO i=1,n
              k = NodeIndexes(i)
+#ifdef HANDLEDEP
+             CALL HandleVarsToValuesOnNodes( Handle, k, T, j, AllGlobal )
+#else
              CALL VarsToValuesOnNodes( VarCount, VarTable, k, T, j, AllGlobal )
-
+#endif
+             
              IF ( .NOT. ANY( T(1:j)==HUGE(1.0_dp) ) ) THEN
                DO l=1,j
                  WRITE( cmd, * ) 'tx('//TRIM(i2s(l-1))//')=', T(l)
@@ -4955,9 +5307,11 @@ CONTAINS
            CALL matc( cmd, tmp_str, k )
            
            CALL ListPushActiveName(Handle % name)
-           
+
+#ifndef HANDLEDEP
            CALL ListParseStrToVars( Ptr % DependName, Ptr % DepNameLen, &
                Handle % Name, VarCount, VarTable, SomeAtIp, SomeAtNodes )
+#endif
            
            IF( PRESENT( Indexes ) ) THEN
              n = SIZE( Indexes )
@@ -4972,8 +5326,12 @@ CONTAINS
            
            DO i=1,n
              k = NodeIndexes(i)
-             
+
+#ifdef HANDLEDEP
+             CALL HandleVarsToValuesOnNodes( Handle, k, T, j, AllGlobal )
+#else
              CALL VarsToValuesOnNodes( VarCount, VarTable, k, T, j, AllGlobal )
+#endif
              
              IF ( ptr % TYPE==LIST_TYPE_VARIABLE_TENSOR_STR) THEN
                DO l=1,j
@@ -5202,12 +5560,12 @@ CONTAINS
 
      
      IF( ptr % TYPE == LIST_TYPE_VARIABLE_SCALAR .OR. &
-         ptr % TYPE == LIST_TYPE_VARIABLE_SCALAR_STR ) THEN       
-         CALL ListParseStrToVars( Ptr % DependName, Ptr % DepNameLen, &
-             Handle % Name, VarCount, VarTable, SomeAtIp, SomeAtNodes )
-         IF( SomeAtIp ) Handle % EvaluateAtIp = .TRUE.
-       END IF
-         
+         ptr % TYPE == LIST_TYPE_VARIABLE_SCALAR_STR ) THEN              
+       CALL ListParseStrToVars( Ptr % DependName, Ptr % DepNameLen, &
+           Handle % Name, VarCount, VarTable, SomeAtIp, SomeAtNodes )
+       IF( SomeAtIp ) Handle % EvaluateAtIp = .TRUE.
+     END IF
+     
 
      ! Either evaluate parameter directly at IP, 
      ! or first at nodes and then using basis functions at IP.

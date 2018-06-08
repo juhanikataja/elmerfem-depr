@@ -422,50 +422,6 @@ END INTERFACE
    END TYPE ValueList_t
 
 
-   ! This is a tentative data type to speed up the retrieval of parameters
-   ! at elements.
-   !----------------------------------------------------------------------
-   TYPE ValueHandle_t
-     INTEGER :: ValueType = -1
-     INTEGER :: SectionType = -1
-     INTEGER :: ListId = -1
-     LOGICAL :: BulkElement
-     TYPE(Element_t), POINTER :: Element => NULL()
-     TYPE(ValueList_t), POINTER :: List => Null()
-     TYPE(ValueList_t), POINTER :: Ptr  => Null()
-     TYPE(Nodes_t), POINTER :: Nodes
-     INTEGER, POINTER :: Indexes
-     INTEGER :: n
-     INTEGER :: nValuesVec = 0
-     REAL(KIND=dp), POINTER :: ValuesVec(:) => NULL()
-     REAL(KIND=dp), POINTER :: Values(:) => NULL()
-     REAL(KIND=dp), POINTER :: ParValues(:,:) => NULL()
-     INTEGER :: ParNo = 0
-     INTEGER :: IValue, DefIValue = 0
-     REAL(KIND=dp) :: RValue, DefRValue = 0.0_dp
-     INTEGER :: Rdim = 0
-     REAL(KIND=dp), POINTER :: RTensor(:,:) => NULL()
-     REAL(KIND=dp), POINTER :: RTensorValues(:,:,:) => NULL()
-     LOGICAL :: LValue, DefLValue = .FALSE.
-     CHARACTER(LEN=MAX_NAME_LEN) :: CValue
-     INTEGER :: CValueLen
-     LOGICAL :: Found
-     CHARACTER(LEN=MAX_NAME_LEN) :: Name
-     LOGICAL :: Initialized = .FALSE.
-     LOGICAL :: AllocationsDone = .FALSE.
-     LOGICAL :: ConstantEverywhere = .FALSE.
-     LOGICAL :: GlobalEverywhere = .FALSE.
-     LOGICAL :: GlobalInList = .FALSE.
-     LOGICAL :: EvaluateAtIP = .FALSE.
-     LOGICAL :: SomewhereEvaluateAtIP = .FALSE.
-     LOGICAL :: NotPresentAnywhere = .FALSE.
-     LOGICAL :: UnfoundFatal = .FALSE.
-     REAL(KIND=dp) :: minv, maxv
-     LOGICAL :: GotMinv = .FALSE., GotMaxv = .FALSE.
-
-     
-   END TYPE ValueHandle_t
-
 !------------------------------------------------------------------------------
 
    TYPE MaterialArray_t
@@ -586,6 +542,57 @@ END INTERFACE
    TYPE VariableTable_t     
      TYPE(Variable_t), POINTER :: Variable
    END TYPE VariableTable_t
+
+
+   ! This data type is a holder to speed up the retrieval of parameters at elements.
+   !------------------------------------------------------------------------------
+   TYPE ValueHandle_t
+     INTEGER :: ValueType = -1
+     INTEGER :: SectionType = -1
+     INTEGER :: ListId = -1
+     LOGICAL :: BulkElement
+     TYPE(Element_t), POINTER :: Element => NULL()
+     TYPE(ValueList_t), POINTER :: List => Null()
+     TYPE(ValueList_t), POINTER :: Ptr  => Null()
+     TYPE(Nodes_t), POINTER :: Nodes
+     INTEGER, POINTER :: Indexes
+     INTEGER :: n
+     INTEGER :: nValuesVec = 0
+     REAL(KIND=dp), POINTER :: ValuesVec(:) => NULL()
+     REAL(KIND=dp), POINTER :: Values(:) => NULL()
+     REAL(KIND=dp), POINTER :: ParValues(:,:) => NULL()
+     INTEGER :: ParNo = 0
+     INTEGER :: IValue, DefIValue = 0
+     REAL(KIND=dp) :: RValue, DefRValue = 0.0_dp
+     INTEGER :: Rdim = 0
+     REAL(KIND=dp), POINTER :: RTensor(:,:) => NULL()
+     REAL(KIND=dp), POINTER :: RTensorValues(:,:,:) => NULL()
+     LOGICAL :: LValue, DefLValue = .FALSE.
+     CHARACTER(LEN=MAX_NAME_LEN) :: CValue
+     INTEGER :: CValueLen
+     LOGICAL :: Found
+     CHARACTER(LEN=MAX_NAME_LEN) :: Name
+     LOGICAL :: Initialized = .FALSE.
+     LOGICAL :: AllocationsDone = .FALSE.
+     LOGICAL :: ConstantEverywhere = .FALSE.
+     LOGICAL :: GlobalEverywhere = .FALSE.
+     LOGICAL :: GlobalInList = .FALSE.
+     LOGICAL :: EvaluateAtIP = .FALSE.
+     LOGICAL :: SomewhereEvaluateAtIP = .FALSE.
+     LOGICAL :: NotPresentAnywhere = .FALSE.
+     LOGICAL :: UnfoundFatal = .FALSE.
+     REAL(KIND=dp) :: minv, maxv
+     LOGICAL :: GotMinv = .FALSE., GotMaxv = .FALSE.
+
+#define MAX_FNC 32
+     INTEGER :: DepVarN
+     TYPE(VariableTable_t) :: DepVarTable(MAX_FNC)
+     INTEGER(KIND=AddrInt) :: DepVarProc(MAX_FNC)
+     INTEGER :: DepVarSize(MAX_FNC)
+     LOGICAL :: DepAtIp, DepAtNodes
+     
+   END TYPE ValueHandle_t
+
    
 !------------------------------------------------------------------------------
    TYPE ListMatrixEntry_t
