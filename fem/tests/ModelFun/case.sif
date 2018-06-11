@@ -28,6 +28,7 @@ Material 1
 !    Real MATC "sqrt(tx)"
   diffusion coefficient = Variable "mysqrt(field)"
     Real MATC "tx"
+  diffusion coefficient at ip = logical true
 End
 
 Body Force 1

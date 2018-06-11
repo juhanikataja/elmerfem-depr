@@ -137,6 +137,11 @@ END INTERFACE
   INCLUDE 'dmumps_struc.h'
 #endif
 
+   TYPE GaussIntegrationPoints_t
+      INTEGER :: N
+      REAL(KIND=dp), POINTER CONTIG :: u(:),v(:),w(:),s(:)
+!DIR$ ATTRIBUTES ALIGN:64 :: u, v, w, s
+   END TYPE GaussIntegrationPoints_t
 
   TYPE BasicMatrix_t
     INTEGER :: NumberOfRows
@@ -556,6 +561,7 @@ END INTERFACE
      TYPE(ValueList_t), POINTER :: Ptr  => Null()
      TYPE(Nodes_t), POINTER :: Nodes
      INTEGER, POINTER :: Indexes
+     TYPE(GaussIntegrationPoints_t), POINTER :: IP => NULL()
      INTEGER :: n
      INTEGER :: nValuesVec = 0
      REAL(KIND=dp), POINTER :: ValuesVec(:) => NULL()

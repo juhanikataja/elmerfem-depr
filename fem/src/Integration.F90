@@ -42,7 +42,7 @@
 !>  containing various integration routines.
 !-----------------------------------------------------------------------------
 MODULE Integration
-   USE Types
+   USE Types, ONLY: GaussIntegrationPoints_t
    USE LoadMod
    USE LinearAlgebra
 
@@ -55,11 +55,6 @@ MODULE Integration
    !$OMP THREADPRIVATE(GInit)
    
 !------------------------------------------------------------------------------
-   TYPE GaussIntegrationPoints_t
-      INTEGER :: N
-      REAL(KIND=dp), POINTER CONTIG :: u(:),v(:),w(:),s(:)
-!DIR$ ATTRIBUTES ALIGN:64 :: u, v, w, s
-   END TYPE GaussIntegrationPoints_t
 
    TYPE(GaussIntegrationPoints_t), TARGET, PRIVATE, SAVE :: IntegStuff
    !$OMP THREADPRIVATE(IntegStuff)

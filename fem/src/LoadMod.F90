@@ -347,6 +347,36 @@ MODULE LoadMod
             realval = pptr(model, x, y, z)
         END FUNCTION execconstrealfunction
 
+        RECURSIVE FUNCTION execrealipfunction(Variable, Element, IP, ipind) result(realval)
+            IMPLICIT NONE
+            TYPE(Variable_t) :: Variable
+            TYPE(Element_t) :: Element
+            TYPE(GaussIntegrationPoints_t) :: IP
+            INTEGER :: ipind
+
+            REAL(KIND=dp) :: realval
+
+            INTEGER(KIND=AddrInt) :: fptr
+
+            INTERFACE
+                FUNCTION ElmerRealFn(Variable, Element, IP, ipind) RESULT(realval)
+                  IMPORT Variable_t, Element_t, GaussIntegrationPoints_t, dp
+                  TYPE(Variable_t) :: Variable
+                  TYPE(Element_t) :: Element
+                  TYPE(GaussIntegrationPoints_t) :: IP
+                  INTEGER :: ipind
+                  REAL(KIND=dp) :: realval
+                END FUNCTION ElmerRealFn
+            END INTERFACE
+            TYPE(C_FUNPTR) :: cfptr
+            PROCEDURE(ElmerRealFn), POINTER :: pptr
+
+            ! Ugly hack, fptr should be stored as C function pointer
+            cfptr = TRANSFER(fptr, cfptr)
+            CALL C_F_PROCPOINTER(cfptr, pptr)
+            realval = pptr(Variable, Element, IP, ipind)
+        END FUNCTION execrealipfunction
+
         RECURSIVE FUNCTION execrealfunction(fptr, model, node, val) RESULT(realval)
             IMPLICIT NONE
             INTEGER(KIND=AddrInt) :: fptr

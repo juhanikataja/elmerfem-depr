@@ -3292,10 +3292,10 @@ CONTAINS
             k1 = k1 + 1
             IF ( k1 > slen ) EXIT
           END DO
-                    
-          PRINT *,'variable:',str(k0+1:k1-1)          
+
+          PRINT *,'variable:',str(k0+1:k1-1)
           Var => VariableGet( CurrentModel % Variables,str(k0+1:k1-1) )
-          GotVar = ASSOCIATED( Var )         
+          GotVar = ASSOCIATED( Var )
 
           IF( .NOT. ASSOCIATED( Var % Solver ) ) THEN
             CALL Fatal('ListParseStrToHandle','Currently the proc is searched in the var % solver!')
@@ -3309,19 +3309,19 @@ CONTAINS
           END IF
 
           PRINT *,'proc:',funitem % PROCEDURE
-          
+
           Handle % DepVarProc(count) = funitem % PROCEDURE
           Handle % DepVarSize(count) = MAX( 1, funitem % Fdim )   
-          
+
           k2 = k1+1
-          DO k2=k1+1,l1            
+          DO k2=k1+1,l1
             IF( str(k2:k2) == ':') THEN
               READ(str(k2+1:l1),*) dofs
               Handle % DepVarSize(count) = dofs
               PRINT *,'dofs:',dofs
               EXIT
             END IF
-          END DO          
+          END DO
         END IF
 
         IF( .NOT. GotVar ) THEN
@@ -3332,7 +3332,7 @@ CONTAINS
               TRIM(str(l0:l1))//'] for dependent variable:['//TRIM(Handle % Name)//']' ) 
         END IF
         Handle % DepVarTable(count) % Variable => Var
-        
+
         IF( Var % TYPE == Variable_on_gauss_points ) THEN
           Handle % DepAtIp = .TRUE.
         ELSE
@@ -3657,6 +3657,8 @@ CONTAINS
 !> This only deals with the gauss point variables, all other are already treated. 
 !-------------------------------------------------------------------------------------
   SUBROUTINE HandleVarsToValuesOnIps( Handle, ind, T, count )
+     USE Types
+     USE Integration
 !------------------------------------------------------------------------------
      TYPE(ValueHandle_t) :: Handle
      INTEGER :: ind
@@ -3687,7 +3689,7 @@ CONTAINS
          IF ( k1 <= 0 .AND. k1 > VarSize ) THEN
            RETURN
          END IF
-         
+
          IF( Handle % DepVarSize(Vari) > 0 ) THEN
            count = count + 1
            IF( dofs > 1 ) THEN
@@ -3698,7 +3700,18 @@ CONTAINS
              vals(1) = Var % Values(k1)
            END IF
            ! internal udf function for IPs
-           T(count) = ExecRealFunction( Handle % DepVarProc(Vari), CurrentModel, ind, vals(1:dofs) )           
+           ! T(count) = ExecRealFunction( Handle % DepVarProc(Vari), CurrentModel, ind, vals(1:dofs) )
+           block
+             TYPE(GaussIntegrationPoints_t), POINTER :: IP
+             TYPE(GaussIntegrationPoints_t), TARGET :: IPnew
+             if (ASSOCIATED(Handle % IP)) then
+               IP => Handle % IP
+             else
+               IPnew = GaussPoints(Element)
+               IP => IPnew
+             end if
+             T(count) = ExecRealIPfunction(Var, Element, IP, ind)
+           end block
          ELSE
            DO l=1,Var % DOFs
              count = count + 1
@@ -3713,11 +3726,12 @@ CONTAINS
          END IF
        END IF
      END DO
-     
-   END SUBROUTINE HandleVarsToValuesOnIps
- !------------------------------------------------------------------------------
 
-   
+!------------------------------------------------------------------------------
+   END SUBROUTINE HandleVarsToValuesOnIps
+!------------------------------------------------------------------------------
+
+
 !------------------------------------------------------------------------------
   SUBROUTINE ListParseStrToValues( str, slen, ind, name, T, count, AllGlobal )!, SomeIp )
 !------------------------------------------------------------------------------
@@ -4895,7 +4909,7 @@ CONTAINS
            ptr % TYPE == LIST_TYPE_VARIABLE_TENSOR .OR. &
            ptr % TYPE == LIST_TYPE_VARIABLE_TENSOR_STR ) THEN
 
-         PRINT *,'goint to parse',ASSOCIATED( Ptr )
+         PRINT *,'going to parse',ASSOCIATED( Ptr )
          CALL ListParseStrToHandle( Ptr, Handle )
          PRINT *,'done parse'
        END IF
@@ -4983,14 +4997,18 @@ CONTAINS
              k = NodeIndexes(i)
 
 #ifdef HANDLEDEP
-             CALL HandleVarsToValuesOnNodes( Handle, k, T, j, AllGlobal )
+             ! CALL HandleVarsToValuesOnNodes( Handle, k, T, j, AllGlobal )
+             IF( .NOT. PRESENT( GaussPoint ) ) THEN
+               CALL Fatal('ListGetElementReal','Evaluation of ip fields requires gauss points as parameter!')
+             END IF
+             CALL HandleVarsToValuesOnIps( Handle, GaussPoint, T, j )
 #else
              CALL VarsToValuesOnNodes( VarCount, VarTable, k, T, j, AllGlobal )
 #endif
              
-             IF( AllGlobal ) THEN
-               CALL Fatal('ListGetElementReal','Constant lists should not need to be here')
-             END IF
+             ! IF( AllGlobal ) THEN
+             !   CALL Fatal('ListGetElementReal','Constant lists should not need to be here')
+             ! END IF
              
              Handle % ParNo = j 
              Handle % ParValues(1:j,i) = T(1:j)
@@ -5005,7 +5023,7 @@ CONTAINS
        CASE( LIST_TYPE_VARIABLE_SCALAR )
          
          DO j=1,Handle % ParNo 
-           T(j) = SUM( Basis(1:n) *  Handle % ParValues(j,1:n) )
+           T(j) = SUM( Basis(1:n) * Handle % ParValues(j,1:n) )
          END DO
 
          ! This one only deals with the variables on IPs, nodal ones have been fetched already

@@ -37,7 +37,7 @@ SUBROUTINE AdvDiffSolver( Model,Solver,dt,TransientSimulation )
   
   
   CALL ListInitElementKeyword( Load_h,'Body Force','Field Source')
-  CALL ListInitElementKeyword( DiffCoeff_h,'Material','Diffusion Coefficient')
+  CALL ListInitElementKeyword( DiffCoeff_h,'Material','Diffusion Coefficient', EvaluateAtIp=.TRUE.)
   
   CALL DefaultStart()
   
@@ -119,7 +119,8 @@ CONTAINS
 
       ! The source term at the integration point:
       !------------------------------------------
-      D = ListGetElementReal( DiffCoeff_h, Basis, Element, Found )       
+      D = ListGetElementReal( DiffCoeff_h, element=Element, found=Found , gausspoint = t)       
+      ! print *, 'D=', D
       LoadAtIP = ListGetElementReal( Load_h, Basis, Element, Found ) 
       
       Weight = IP % s(t) * DetJ
@@ -175,19 +176,72 @@ END SUBROUTINE AdvDiffSolver
 
 
 !-------------------------------------------------------------------------------
-  FUNCTION SquareRoot(Model, n, x) RESULT ( y )
+FUNCTION SquareRoot(Variable, Element, IP, ipind) RESULT ( y )
 !-------------------------------------------------------------------------------
-    USE DefUtils
-    IMPLICIT NONE
-    TYPE(Model_t) :: Model
-    INTEGER :: n
-    REAL(KIND=dp) :: X
-    REAL(KIND=dp) :: Y
+  USE DefUtils
+  IMPLICIT NONE
+  TYPE(Variable_t), INTENT(IN) :: Variable
+  TYPE(Element_t), INTENT(IN) :: Element
+  TYPE(GaussIntegrationPoints_t), INTENT(IN) :: IP
+  integer :: ipind
+  REAL(KIND=dp) :: y
 !-------------------------------------------------------------------------------
+  TYPE(Nodes_t), SAVE :: Nodes
+  REAL(KIND=dp), ALLOCATABLE, SAVE :: Basis(:,:), dBasisdx(:,:,:), DetJ(:)
+  REAL(KIND=dp), ALLOCATABLE, SAVE :: local_phi(:), phi_cache(:)
+  logical :: estat, recache
+  integer :: elemind  = -1
+  integer :: k, t, ngp, nd
+  !$OMP THREADPRIVATE(Nodes, Basis, dBasisdx, DetJ, local_phi, elemind, phi_cache)
+
+  print *, 'at SquareRoot'
+  recache = .false.
+  if (elemind /= Element % ElementIndex) recache = .true.
+  elemind = Element % ElementIndex
+
+  IF (recache) THEN
+    call GetElementNodesVec(Nodes, Uelement=Element, &
+        USolver = Variable % Solver, UMesh = Variable % Solver % Mesh)
+
+    ngp = IP % n
+    nd = GetElementNOFDOFs(Element, USolver=Variable % Solver)
+
+    IF (.not. allocated(phi_cache) .or. &
+        size(phi_cache, 1) < ngp) THEN
+      ALLOCATE(phi_cache(ngp))
+    END IF
+
+    IF (.not. ALLOCATED(Basis) .or. size(basis,1) < nd .or. size(basis,2) < ngp) THEN
+      ALLOCATE(basis(ngp, nd), detj(ngp))
+    END IF
+
+    IF(.not. ALLOCATED(local_phi) .or. size(local_phi,1) < nd) THEN
+      ALLOCATE(local_phi(nd))
+    END IF
+
+    CALL GetScalarLocalSolution(local_phi, UVariable=Variable)
+
+    estat = ElementInfoVec( Element, Nodes, ngp, IP % U, IP % V, &
+        IP % W, detJ, size(basis,2), Basis )
+    phi_cache = 0.0_dp
     
-    y = SQRT( MAX( x, 0.0_dp) ) 
+    DO t = 1, nd
+      DO k = 1, ip % n
+        phi_cache(k) = phi_cache(k) + basis(k,t) * local_phi(t)
+      END DO
+      DO k = 1, ip % n
+        phi_cache(k) = phi_cache(k) + basis(k,t) * local_phi(t)
+      END DO
+    END DO
+  end if
+
+  y = sqrt(phi_cache(ipind))
+  print *, 'y=', phi_cache, y
+
+
+
    
 !-------------------------------------------------------------------------------
-  END FUNCTION SquareRoot
+END FUNCTION SquareRoot
 !-------------------------------------------------------------------------------
  
