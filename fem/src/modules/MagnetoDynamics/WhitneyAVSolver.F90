@@ -223,9 +223,14 @@ SUBROUTINE WhitneyAVSolver( Model,Solver,dt,Transient )
   INTEGER, POINTER :: Vperm(:), Aperm(:)
   REAL(KIND=dp), POINTER :: Avals(:), Vvals(:)
 
+
   SAVE STIFF, LOAD, MASS, FORCE, Tcoef, GapLength, AirGapMu, &
        Acoef, Cwrk, LamThick, LamCond, Wbase, RotM, AllocationsDone, &
        Acoef_t, DConstr
+  !$OMP THREADPRIVATE(STIFF, LOAD, MASS, FORCE, Tcoef, GapLength, AirGapMu, &
+  !$OMP Acoef, Cwrk, LamThick, LamCond, Wbase, RotM, AllocationsDone, &
+  !$OMP Acoef_t, DConstr, TreeEdges, CM, TransientGaugeCollected, DoneAssembly)
+
 !------------------------------------------------------------------------------
   IF ( .NOT. ASSOCIATED( Solver % Matrix ) ) RETURN	
 
@@ -325,18 +330,21 @@ SUBROUTINE WhitneyAVSolver( Model,Solver,dt,Transient )
   nNodes = Mesh % NumberOfNodes
   Perm => Solver % Variable % Perm
   Vecpot => Solver % Variable % Values
-
+  !$OMP PARALLEL DEFAULT(NONE) shared(n, transientgauge, A, Solver, &
+  !$OMP n_n, n_e, Vvals, Avals, Aperm, Vperm, Mesh, &
+  !$OMP SolverParams, perm, vecpot) &
+  !$OMP private(istat)
   IF ( .NOT. AllocationsDone ) THEN
-     N = Mesh % MaxElementDOFs  ! just big enough
-     ALLOCATE( FORCE(N), LOAD(7,N), STIFF(N,N), &
-          MASS(N,N), Tcoef(3,3,N), GapLength(N), &
-          AirGapMu(N), Acoef(N), LamThick(N), &
-          LamCond(N), Wbase(N), RotM(3,3,N), Cwrk(3,3,N), &
-          DConstr(N,N), Acoef_t(3,3,N), STAT=istat )
+    N = Mesh % MaxElementDOFs  ! just big enough
+    ALLOCATE( FORCE(N), LOAD(7,N), STIFF(N,N), &
+        MASS(N,N), Tcoef(3,3,N), GapLength(N), &
+        AirGapMu(N), Acoef(N), LamThick(N), &
+        LamCond(N), Wbase(N), RotM(3,3,N), Cwrk(3,3,N), &
+        DConstr(N,N), Acoef_t(3,3,N), STAT=istat )
      IF ( istat /= 0 ) THEN
         CALL Fatal( 'WhitneyAVSolver', 'Memory allocation error.' )
      END IF
-
+    !$OMP SINGLE
      IF(GetString(SolverParams,'Linear System Solver')=='block') THEN
        n = Mesh % NumberOfNodes
        n_n = COUNT(Perm(1:n)>0)
@@ -360,16 +368,20 @@ SUBROUTINE WhitneyAVSolver( Model,Solver,dt,Transient )
        CALL VariableAdd(Mesh % Variables,Mesh,Solver, & 
                  GetVarName(Solver % Variable)//' 2',1,Avals,Aperm)
      END IF
+     !$OMP END SINGLE
 
      NULLIFY( Cwrk )
 
+     !$OMP SINGLE
      IF (TransientGauge) THEN
        A => GetMatrix()
        IF (.NOT. TransientGaugeCollected) CM => AddConstraintFromBulk(A, Solver % Matrix % ConstraintMatrix)
      END IF
 
+     !$OMP END SINGLE
      AllocationsDone = .TRUE.
   END IF
+  !$OMP END PARALLEL
 
   ConstantSystem = GetLogical( SolverParams, &
        'Constant System', Found )
@@ -478,17 +490,22 @@ CONTAINS
 
    TYPE(Matrix_t), POINTER :: MMatrix
    REAL(KIND=dp), POINTER :: Mx(:), Mb(:), Mr(:)
-   REAL(KIND=dp), DIMENSION(:), ALLOCATABLE :: TmpRVec, TmpRHSVec   
+   ! REAL(KIND=dp), DIMENSION(:), ALLOCATABLE :: TmpRVec, TmpRHSVec   
    CHARACTER(LEN=MAX_NAME_LEN) :: ConvergenceType
    REAL(KIND=dp),  POINTER CONTIG :: SaveValues(:), ConstraintValues(:)
 
-   SAVE TmpRHSVec, TmpRVec
+   ! Multicoloured assembly related variables
+   INTEGER :: nColours, col, nthr, totelem
+   LOGICAL :: VecAsm
+
+   ! SAVE TmpRHSVec, TmpRVec
   !-----------------
   !System assembly:
   !-----------------
 
   A => GetMatrix()
   IF (TransientGauge) Constraintvalues => CM % Values
+
 
 300 CONTINUE
 
@@ -502,120 +519,153 @@ CONTAINS
   ! Timing
   CALL ResetTimer('MGDynAssembly')
   CALL DefaultInitialize()
-  Active = GetNOFActive()
-  DO t=1,active
-     Element => GetActiveElement(t)
-     n  = GetElementNOFNodes() ! kulmat
-     nd = GetElementNOFDOFs()  ! vapausasteet
-     nb = GetElementNOFBDOFs()  ! sisäiset vapausasteet
 
-     IF (SIZE(Tcoef,3) /= n) THEN
-       DEALLOCATE(Tcoef)
-       ALLOCATE(Tcoef(3,3,n), STAT=istat)
-       IF ( istat /= 0 ) THEN
-         CALL Fatal( 'WhitneyAVSolver', 'Memory allocation error.' )
-       END IF
-     END IF
-     
-     LOAD = 0.0d0
-     BodyForce => GetBodyForce()
-     FoundMagnetization = .FALSE.
-     IF ( ASSOCIATED(BodyForce) ) THEN
-       
-       CALL GetRealVector( BodyForce, Load(1:3,1:n), 'Current Density', Found )
-       CALL GetRealVector( BodyForce, Load(4:6,1:n), &
-                'Magnetization', FoundMagnetization )
-       Load(7,1:n) = GetReal( BodyForce, 'Electric Potential', Found )
-     END IF
+  nthr = 1
+  !$ nthr = omp_get_max_threads()
 
-     Material => GetMaterial( Element )
+  totelem = 0
 
-     IF(ASSOCIATED(Material).AND..NOT.FoundMagnetization) THEN
-       CALL GetRealVector( Material, Load(4:6,1:n), &
-                'Magnetization', FoundMagnetization )
-     END IF
+  nColours = GetNOFColours(Solver)
+  VecAsm = (nColours > 1) .OR. (nthr == 1)
 
-     CoilBody = .FALSE.
-     CompParams => GetComponentParams( Element )
-     CoilType = ''
-     RotM = 0._dp
-     IF (ASSOCIATED(CompParams)) THEN
-       CoilType = GetString(CompParams, 'Coil Type', Found)
-       IF (Found) THEN
-         SELECT CASE (CoilType)
-         CASE ('stranded')
+  !!$OMP PRIVATE(t, Element, n, nd, nb,col, ConstraintValues, savevalues, dconstr, &
+  !!$OMP lamthick, mass, stiff, force, LamCond, LaminateStackModel, laminatestack, &
+  !!$OMP HasTensorReluctivity, Acoef_t, acoef, rotm, coiltype, CompParams, coilbody, &
+  !!$OMP material, found, FoundMagnetization, BodyForce, load, istat, tcoef) &
+
+  !$OMP PARALLEL &
+  !$OMP SHARED(Solver, Active, nColours, &
+  !$OMP        VecAsm) &
+  !$OMP FIRSTPRIVATE(Constraintvalues) &
+  !$OMP PRIVATE(t, Element, n, nd, nb, col, savevalues, &
+  !$OMP LaminateStackModel, laminatestack, &
+  !$OMP HasTensorReluctivity, coiltype, CompParams, coilbody, &
+  !$OMP Material, Found, FoundMagnetization, BodyForce, istat) &
+  !$OMP shared(transientgauge, transient, PiolaVersion, SecondOrder) &
+  !$OMP REDUCTION(+:totelem) DEFAULT(NONE)
+  DO col=1,nColours
+    !$OMP SINGLE
+    CALL Info('ModelPDEthreaded','Assembly of colour: '//TRIM(I2S(col)),Level=10)
+    Active = GetNOFActive(Solver)
+    !$OMP END SINGLE
+
+    !$OMP DO
+    DO t=1,active
+      Element => GetActiveElement(t)
+      totelem = totelem + 1
+      n  = GetElementNOFNodes() ! kulmat
+      nd = GetElementNOFDOFs()  ! vapausasteet
+      nb = GetElementNOFBDOFs()  ! sisäiset vapausasteet
+
+      IF (SIZE(Tcoef,3) /= n) THEN
+        DEALLOCATE(Tcoef)
+        ALLOCATE(Tcoef(3,3,n), STAT=istat)
+        IF ( istat /= 0 ) THEN
+          CALL Fatal( 'WhitneyAVSolver', 'Memory allocation error.' )
+        END IF
+      END IF
+
+      LOAD = 0.0d0
+      BodyForce => GetBodyForce( Element )
+      FoundMagnetization = .FALSE.
+      IF ( ASSOCIATED(BodyForce) ) THEN
+        CALL GetRealVector( BodyForce, Load(1:3,1:n), 'Current Density', Found )
+        CALL GetRealVector( BodyForce, Load(4:6,1:n), &
+            'Magnetization', FoundMagnetization )
+        Load(7,1:n) = GetReal( BodyForce, 'Electric Potential', Found )
+      END IF
+
+      Material => GetMaterial( Element )
+
+      IF(ASSOCIATED(Material).AND..NOT.FoundMagnetization) THEN
+        CALL GetRealVector( Material, Load(4:6,1:n), &
+            'Magnetization', FoundMagnetization )
+      END IF
+
+      CoilBody = .FALSE.
+      CompParams => GetComponentParams( Element )
+      CoilType = ''
+      RotM = 0._dp
+      IF (ASSOCIATED(CompParams)) THEN
+        CoilType = GetString(CompParams, 'Coil Type', Found)
+        IF (Found) THEN
+          SELECT CASE (CoilType)
+          CASE ('stranded')
             CoilBody = .TRUE.
-         CASE ('massive')
+          CASE ('massive')
             CoilBody = .TRUE.
-         CASE ('foil winding')
+          CASE ('foil winding')
             CoilBody = .TRUE.
             CALL GetElementRotM(Element, RotM, n)
-         CASE DEFAULT
+          CASE DEFAULT
             CALL Fatal ('WhitneyAVSolver', 'Non existent Coil Type Chosen!')
-         END SELECT
-       END IF
-     END IF
+          END SELECT
+        END IF
+      END IF
 
-     Acoef = 0.0d0
-     Acoef_t = 0.0d0
-     Tcoef = 0.0d0
-     Material => GetMaterial( Element )
-     IF ( ASSOCIATED(Material) ) THEN
-       HasTensorReluctivity = .FALSE.
-       CALL GetReluctivity(Material,Acoef_t,n,HasTensorReluctivity)
-       IF(.NOT. HasTensorReluctivity) CALL GetReluctivity(Material,Acoef,n)
+      Acoef = 0.0d0
+      Acoef_t = 0.0d0
+      Tcoef = 0.0d0
+      Material => GetMaterial( Element )
+      IF ( ASSOCIATED(Material) ) THEN
+        HasTensorReluctivity = .FALSE.
+        CALL GetReluctivity(Material,Acoef_t,n,HasTensorReluctivity)
+        IF(.NOT. HasTensorReluctivity) CALL GetReluctivity(Material,Acoef,n)
 
-!------------------------------------------------------------------------------
-!      Read conductivity values (might be a tensor)
-!------------------------------------------------------------------------------
-       
-       Tcoef = GetElectricConductivityTensor(Element,n,'re',CoilBody,CoilType)
+        !------------------------------------------------------------------------------
+        !      Read conductivity values (might be a tensor)
+        !------------------------------------------------------------------------------
 
-       LaminateStackModel = GetString( Material, 'Laminate Stack Model', LaminateStack )
-       IF (.NOT. LaminateStack) LaminateStackModel = ''
-     END IF
+        Tcoef = GetElectricConductivityTensor(Element,n,'re',CoilBody,CoilType)
 
-
-     LamThick=0d0
-     LamCond=0d0
-     IF (LaminateStack) THEN
-       SELECT CASE(LaminateStackModel)
-       CASE('low-frequency model')
-         LamThick(1:n) = GetReal( Material, 'Laminate Thickness', Found )
-         IF (.NOT. Found) CALL Fatal('WhitneyAVSolver', 'Laminate Thickness not found!')
-
-         LamCond(1:n) = GetReal( Material, 'Laminate Stack Conductivity', Found )
-         IF (.NOT. Found) CALL Fatal('WhitneyAVSolver', 'Laminate Stack Conductivity not found!')
-
-       CASE DEFAULT
-         CALL WARN('WhitneyAVSolver', 'Nonexistent Laminate Stack Model chosen!')
-       END SELECT
-     END IF
+        LaminateStackModel = GetString( Material, 'Laminate Stack Model', LaminateStack )
+        IF (.NOT. LaminateStack) LaminateStackModel = ''
+      END IF
 
 
-     !Get element local matrix and rhs vector:
-     !----------------------------------------
-       CALL LocalMatrix( MASS, STIFF, FORCE, LOAD, &
-         Tcoef, Acoef, LaminateStack, LaminateStackModel, &
-         LamThick, LamCond, CoilBody, CoilType, RotM, &
-         Element, n, nd+nb, PiolaVersion, SecondOrder)
+      LamThick=0d0
+      LamCond=0d0
+      IF (LaminateStack) THEN
+        SELECT CASE(LaminateStackModel)
+        CASE('low-frequency model')
+          LamThick(1:n) = GetReal( Material, 'Laminate Thickness', Found )
+          IF (.NOT. Found) CALL Fatal('WhitneyAVSolver', 'Laminate Thickness not found!')
 
-     !Update global matrix and rhs vector from local matrix & vector:
-     !---------------------------------------------------------------
-     IF (Transient) CALL DefaultUpdateMass(MASS)
+          LamCond(1:n) = GetReal( Material, 'Laminate Stack Conductivity', Found )
+          IF (.NOT. Found) CALL Fatal('WhitneyAVSolver', 'Laminate Stack Conductivity not found!')
 
-     ! Collect weak diverence constraint.
-     !-----------------------------------------------------------------
-     IF (Transient .AND. TransientGauge .AND. .NOT. TransientGaugeCollected) THEN
-       CALL LocalConstraintMatrix( DConstr, Element, n, nd+nb, PiolaVersion, SecondOrder)
-       SaveValues => Solver % Matrix % MassValues
-       Solver % Matrix % MassValues => ConstraintValues
-       CALL DefaultUpdateMassR(DConstr)
-       Solver % Matrix % MassValues => SaveValues
-     END IF
+        CASE DEFAULT
+          CALL WARN('WhitneyAVSolver', 'Nonexistent Laminate Stack Model chosen!')
+        END SELECT
+      END IF
 
-     CALL DefaultUpdateEquations(STIFF,FORCE)
+
+      !Get element local matrix and rhs vector:
+      !----------------------------------------
+      CALL LocalMatrix( MASS, STIFF, FORCE, LOAD, &
+          Tcoef, Acoef, LaminateStack, LaminateStackModel, &
+          LamThick, LamCond, CoilBody, CoilType, RotM, &
+          Element, n, nd+nb, PiolaVersion, SecondOrder)
+
+      !Update global matrix and rhs vector from local matrix & vector:
+      !---------------------------------------------------------------
+      IF (Transient) CALL DefaultUpdateMass(MASS)
+
+      ! Collect weak diverence constraint.
+      !-----------------------------------------------------------------
+      IF (Transient .AND. TransientGauge .AND. .NOT. TransientGaugeCollected) THEN
+        CALL LocalConstraintMatrix( DConstr, Element, n, nd+nb, PiolaVersion, SecondOrder)
+        SaveValues => Solver % Matrix % MassValues
+        Solver % Matrix % MassValues => ConstraintValues
+        CALL DefaultUpdateMassR(DConstr)
+        Solver % Matrix % MassValues => SaveValues
+      END IF
+
+      CALL DefaultUpdateEquations(STIFF,FORCE)
+    END DO
+    !$OMP END DO
   END DO
+  !$OMP END PARALLEL
 
   CALL DefaultFinishBulkAssembly(BulkUpdate=ConstantBulk)
 
@@ -830,6 +880,7 @@ CONTAINS
    INTEGER, PARAMETER :: ind2(9) = [1,2,3,1,2,3,1,2,3]
    TYPE(Variable_t), POINTER, SAVE :: RotMvar
    LOGICAL, SAVE :: visited = .FALSE.
+   !$OMP THREADPRIVATE(RotMvar, visited)
  
 
    IF(.NOT. visited) THEN
@@ -1007,7 +1058,7 @@ CONTAINS
     LOGICAL :: stat,Found
     TYPE(Nodes_t), SAVE :: Nodes
     TYPE(GaussIntegrationPoints_t) :: IP
-	!$OMP THREADPRIVATE(Nodes)
+    !$OMP THREADPRIVATE(Nodes)
 
     Density(1:n) = GetReal(GetMaterial(),'Density',Found,Element)
     IF(.NOT.Found) RETURN
@@ -1047,7 +1098,7 @@ CONTAINS
     LOGICAL :: stat, Found
     TYPE(Nodes_t), SAVE :: Nodes
     TYPE(GaussIntegrationPoints_t) :: IP
-	!$OMP THREADPRIVATE(Nodes)
+    !$OMP THREADPRIVATE(Nodes)
 
     r0 = GetCReal(GetBodyParams(),'r inner',Found)
     r1 = GetCReal(GetBodyParams(),'r outer',Found)
@@ -1108,7 +1159,7 @@ CONTAINS
     LOGICAL :: stat, Found
     TYPE(Nodes_t), SAVE :: Nodes
     TYPE(GaussIntegrationPoints_t) :: IP
-	!$OMP THREADPRIVATE(Nodes)
+    !$OMP THREADPRIVATE(Nodes)
 
     r0 = GetCReal(GetBodyParams(),'r inner',Found)
     r1 = GetCReal(GetBodyParams(),'r outer',Found)
@@ -1172,7 +1223,7 @@ CONTAINS
     LOGICAL :: stat, Found
     TYPE(Nodes_t), SAVE :: Nodes, PNodes
     TYPE(GaussIntegrationPoints_t) :: IP
-	!$OMP THREADPRIVATE(Nodes)
+    !$OMP THREADPRIVATE(Nodes, pnodes)
 
     CALL GetElementNodes( Nodes, Element )
     Parent => Element % BoundaryInfo % Left
@@ -1238,7 +1289,7 @@ CONTAINS
     LOGICAL :: stat, WbaseFound
     TYPE(Nodes_t), SAVE :: Nodes
     TYPE(GaussIntegrationPoints_t) :: IP
-	!$OMP THREADPRIVATE(Nodes)
+    !$OMP THREADPRIVATE(Nodes)
 
     CALL GetElementNodes( Nodes )
 
@@ -1694,6 +1745,7 @@ SUBROUTINE LocalConstraintMatrix( Dconstr, Element, n, nd, PiolaVersion, SecondO
   TYPE(GaussIntegrationPoints_t) :: IP
 
   TYPE(Nodes_t), SAVE :: Nodes
+  !$OMP THREADPRIVATE(nodes)
 
   TYPE(ValueListEntry_t), POINTER :: Lst
   !------------------------------------------------------------------------------
@@ -1785,6 +1837,8 @@ END SUBROUTINE LocalConstraintMatrix
     REAL(KIND=dp), POINTER :: Bval(:), Hval(:), Cval(:),  &
            CubicCoeff(:)=>NULL(),HB(:,:)=>NULL()
     TYPE(ValueListEntry_t), POINTER :: Lst
+    TYPE(ValueList_t), POINTER :: BodyForce, Material
+    !$OMP THREADPRIVATE(Nodes, CubicCoeff, HB)
 !------------------------------------------------------------------------------
     IF (SecondOrder) THEN
        EdgeBasisDegree = 2
@@ -1806,10 +1860,12 @@ END SUBROUTINE LocalConstraintMatrix
       FixJPot(1:n) = FixJVar % Values(FixJVar % Perm(Element % NodeIndexes))
     END IF
 
+    BodyForce => GetBodyForce( Element )
+    Material => GetMaterial( Element )
     HasVelocity = .FALSE.
     IF(ASSOCIATED(BodyForce)) THEN
-      CALL GetRealVector( BodyForce, omega_velo, 'Angular velocity', HasAngularVelocity)
       CALL GetRealVector( BodyForce, lorentz_velo, 'Lorentz velocity', HasLorenzVelocity)
+      CALL GetRealVector( BodyForce, omega_velo(1:3, 1:n), 'Angular velocity', HasAngularVelocity)
       HasVelocity = HasAngularVelocity .OR. HasLorenzVelocity
     END IF
 
@@ -2148,6 +2204,7 @@ END SUBROUTINE LocalConstraintMatrix
     INTEGER :: t, i, j, k, ii,jj, np, p, q, EdgeBasisDegree
 
     TYPE(Nodes_t), SAVE :: Nodes
+    !$OMP THREADPRIVATE(Nodes)
 !------------------------------------------------------------------------------
     IF (SecondOrder) THEN
        EdgeBasisDegree = 2
@@ -2243,6 +2300,7 @@ END SUBROUTINE LocalConstraintMatrix
     TYPE(GaussIntegrationPoints_t) :: IP
 
     TYPE(Nodes_t), SAVE :: Nodes
+    !$OMP THREADPRIVATE(Nodes)
 !------------------------------------------------------------------------------
     CALL GetElementNodes( Nodes,  Element )
     !
@@ -2280,6 +2338,7 @@ END SUBROUTINE LocalConstraintMatrix
     INTEGER :: t, i, j, np, p, q, EdgeBasisDegree
 
     TYPE(Nodes_t), SAVE :: Nodes
+    !$OMP THREADPRIVATE(Nodes)
 !------------------------------------------------------------------------------
     CALL GetElementNodes( Nodes, Element )
 
@@ -2334,6 +2393,7 @@ END SUBROUTINE LocalConstraintMatrix
     TYPE(ListMatrixEntry_t), POINTER :: Ltmp
     TYPE(Matrix_t), POINTER :: Smat
     TYPE(Nodes_t),SAVE :: Nodes
+    !$OMP THREADPRIVATE(Nodes)
     TYPE(ValueList_t), POINTER :: BC
 
     LOGICAL :: Found, Found1,Found2,Found3,L1,L2,L3
