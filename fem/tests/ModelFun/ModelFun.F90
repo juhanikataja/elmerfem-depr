@@ -119,7 +119,7 @@ CONTAINS
 
       ! The source term at the integration point:
       !------------------------------------------
-      D = ListGetElementReal( DiffCoeff_h, element=Element, found=Found , gausspoint = t)       
+      D = ListGetElementReal( DiffCoeff_h, element=Element, found=Found , basis= basis, gausspoint = t)       
       ! print *, 'D=', D
       LoadAtIP = ListGetElementReal( Load_h, Basis, Element, Found ) 
       

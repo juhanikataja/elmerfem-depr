@@ -3238,6 +3238,7 @@ CONTAINS
     INTEGER :: i,j,k,n,l,l0,l1,k0,k1,k2,dofs
     TYPE(Variable_t), POINTER :: Var
     TYPE(ValueListEntry_t), POINTER :: funitem
+    LOGICAL :: DepAtIp
 
 
     str => Ptr % DependName
@@ -3246,6 +3247,7 @@ CONTAINS
 
     Handle % DepAtIp = .FALSE.
     Handle % DepAtNodes = .FALSE.
+    DepAtIp = .FALSE.
 
     count=0
     l0=1
@@ -3312,6 +3314,7 @@ CONTAINS
 
           Handle % DepVarProc(count) = funitem % PROCEDURE
           Handle % DepVarSize(count) = MAX( 1, funitem % Fdim )   
+          DepAtIp = .TRUE.
 
           k2 = k1+1
           DO k2=k1+1,l1
@@ -3333,7 +3336,7 @@ CONTAINS
         END IF
         Handle % DepVarTable(count) % Variable => Var
 
-        IF( Var % TYPE == Variable_on_gauss_points ) THEN
+        IF( Var % TYPE == Variable_on_gauss_points .or. DepAtIp) THEN
           Handle % DepAtIp = .TRUE.
         ELSE
           Handle % DepAtNodes = .TRUE.
@@ -3710,7 +3713,7 @@ CONTAINS
                IPnew = GaussPoints(Element)
                IP => IPnew
              end if
-             T(count) = ExecRealIPfunction(Var, Element, IP, ind)
+             T(count) = ExecRealIPfunction(handle % DepVarTable(Vari) % Variable, Element, IP, ind)
            end block
          ELSE
            DO l=1,Var % DOFs
@@ -3919,7 +3922,7 @@ CONTAINS
 
                WRITE( Message, * ) 'Can''t find independent variable:[', &
                    TRIM(ptr % DependName(l0:l1)),']'
-               CALL Warn( 'ListCheckGlobal', Message )
+               CALL Info( 'ListCheckGlobal', Message )
                IsGlobal = .FALSE.
                RETURN
              END IF
@@ -3981,13 +3984,13 @@ CONTAINS
 !------------------------------------------------------------------------------
 !> Gets a real valued parameter in each node of an element.
 !------------------------------------------------------------------------------
-   RECURSIVE FUNCTION ListGetReal( List,Name,N,NodeIndexes,Found,minv,maxv,UnfoundFatal ) RESULT(F)
+ RECURSIVE FUNCTION ListGetReal( List,Name,N,NodeIndexes,Found,minv,maxv,UnfoundFatal ) RESULT(F)
 !------------------------------------------------------------------------------
-     TYPE(ValueList_t), POINTER :: List
-     CHARACTER(LEN=*)  :: Name
-     INTEGER :: N,NodeIndexes(:)
-     REAL(KIND=dp)  :: F(N)
-     LOGICAL, OPTIONAL :: Found, UnfoundFatal
+   TYPE(ValueList_t), POINTER :: List
+   CHARACTER(LEN=*)  :: Name
+   INTEGER :: N,NodeIndexes(:)
+   REAL(KIND=dp)  :: F(N)
+   LOGICAL, OPTIONAL :: Found, UnfoundFatal
      REAL(KIND=dp), OPTIONAL :: minv,maxv
 !------------------------------------------------------------------------------
      TYPE(Variable_t), POINTER :: Variable, CVar, TVar
@@ -4912,6 +4915,7 @@ CONTAINS
          PRINT *,'going to parse',ASSOCIATED( Ptr )
          CALL ListParseStrToHandle( Ptr, Handle )
          PRINT *,'done parse'
+         print *, 'list type: ', ptr % TYPE
        END IF
 #endif      
      ELSE
@@ -5203,7 +5207,8 @@ CONTAINS
                      T(1), ptr % CubicCoeff )
 
                  ! If the dependency table includes just global values (such as time) 
-                 ! the values will be the same for all element entries.
+                 ! the values will be the same for all element entries. TODO: ... in the same
+                 ! material/body force/bc section
                  IF( AllGlobal ) THEN
                    Handle % GlobalInList = .TRUE.
                    EXIT

@@ -3,7 +3,7 @@ Check Keywords "Warn"
 Header :: Mesh DB "." "square"
 
 Simulation
-  Max Output Level = 7
+  Max Output Level = 10
   Coordinate System = Cartesian
   Simulation Type = Steady
   Output Intervals(1) = 1
@@ -44,9 +44,12 @@ Solver 1
   Variable = "Field"
   Procedure = "ModelFun" "AdvDiffSolver"
 
-  Nonlinear System Max Iterations = 10
+  Nonlinear System Max Iterations = 1
   Nonlinear System Convergence Tolerance = 1.0e-5
-  Linear System Solver = Direct
+  Linear System Solver = iterative
+  linear system iterative method = bicgstab
+  linear system convergence tolerance = 1e-9
+  linear system save = true
   Steady State Convergence Tolerance = 1e-9
 End
 
