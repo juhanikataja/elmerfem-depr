@@ -73,20 +73,20 @@ SUBROUTINE AdvDiffSolver( Model,Solver,dt,TransientSimulation )
     
     CALL ResetTimer( Caller//'BulkAssembly' )
 
-    !$OMP PARALLEL &
-    !$OMP SHARED(Solver, Active, nColours, VecAsm) &
-    !$OMP PRIVATE(t, Element, n, nd, nb,col, InitHandles) &
-    !$OMP REDUCTION(+:totelem) DEFAULT(NONE)
+    !!$OMP PARALLEL &
+    !!$OMP SHARED(Solver, Active, nColours, VecAsm) &
+    !!$OMP PRIVATE(t, Element, n, nd, nb,col, InitHandles) &
+    !!$OMP REDUCTION(+:totelem) DEFAULT(NONE)
    
     DO col=1,nColours
       
-      !$OMP SINGLE
+      !!$OMP SINGLE
       CALL Info( Caller,'Assembly of colour: '//I2S(col),Level=15)
       Active = GetNOFActive(Solver)
-      !$OMP END SINGLE
+      !!$OMP END SINGLE
 
       InitHandles = .TRUE.
-      !$OMP DO
+      !!$OMP DO
       DO t=1,Active
         Element => GetActiveElement(t)
         totelem = totelem + 1
@@ -95,9 +95,9 @@ SUBROUTINE AdvDiffSolver( Model,Solver,dt,TransientSimulation )
         nb = GetElementNOFBDOFs(Element)
         CALL LocalMatrixVec(  Element, n, nd+nb, nb, VecAsm, InitHandles )
       END DO
-      !$OMP END DO
+      !!$OMP END DO
     END DO
-    !$OMP END PARALLEL 
+    !!$OMP END PARALLEL 
 
     CALL CheckTimer(Caller//'BulkAssembly',Delete=.TRUE.)
     totelem = 0
@@ -179,14 +179,14 @@ CONTAINS
     TYPE(ValueHandle_t), SAVE :: SourceCoeff_h, DiffCoeff_h, ReactCoeff_h, TimeCoeff_h, ConvCoeff_h, &
         Velo1Coeff_h, Velo2Coeff_h, Velo3Coeff_h
     
-    !$OMP THREADPRIVATE(Basis, dBasisdx, DetJ, &
-    !$OMP               MASS, STIFF, FORCE, Nodes, &
-    !$OMP               SourceCoeff_h, DiffCoeff_h, ReactCoeff_h, TimeCoeff_h, &
-    !$OMP               ConvCoeff_h, Velo1Coeff_h, Velo2Coeff_h, Velo3Coeff_h, &
-    !$OMP               SourceCoeff, DiffCoeff, ReactCoeff, TimeCoeff, &
-    !$OMP               ConvCoeff, Velo1Coeff, Velo2Coeff, Velo3Coeff, VeloCoeff )
-    !DIR$ ATTRIBUTES ALIGN:64 :: Basis, dBasisdx, DetJ
-    !DIR$ ATTRIBUTES ALIGN:64 :: MASS, STIFF, FORCE
+    !!!$OMP THREADPRIVATE(Basis, dBasisdx, DetJ, &
+    !!!$OMP               MASS, STIFF, FORCE, Nodes, &
+    !!!$OMP               SourceCoeff_h, DiffCoeff_h, ReactCoeff_h, TimeCoeff_h, &
+    !!!$OMP               ConvCoeff_h, Velo1Coeff_h, Velo2Coeff_h, Velo3Coeff_h, &
+    !!!$OMP               SourceCoeff, DiffCoeff, ReactCoeff, TimeCoeff, &
+    !!!$OMP               ConvCoeff, Velo1Coeff, Velo2Coeff, Velo3Coeff, VeloCoeff )
+    !!!DIR$ ATTRIBUTES ALIGN:64 :: Basis, dBasisdx, DetJ
+    !!!DIR$ ATTRIBUTES ALIGN:64 :: MASS, STIFF, FORCE
 !------------------------------------------------------------------------------
 
     ! This InitHandles flag might be false on threaded 1st call

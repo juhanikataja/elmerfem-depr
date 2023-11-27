@@ -69,7 +69,7 @@ CONTAINS
     REAL(KIND=dp) :: wrk(VECTOR_BLOCK_LENGTH,n)
     INTEGER :: i, ii, iin, j, l, k, kk, ldbasis, ldwrk, ldk, blklen
     LOGICAL :: noAlphaWeight
-!DIR$ ATTRIBUTES ALIGN:64::wrk
+!!DIR$ ATTRIBUTES ALIGN:64::wrk
 
     ldbasis = SIZE(GradU,1)
     ldwrk = SIZE(wrk,1)
@@ -85,11 +85,12 @@ CONTAINS
       IF (blklen < VECTOR_SMALL_THRESH) THEN
         ! Do not attempt to call BLAS for small cases to avoid preprocessing overhead
         IF (noAlphaWeight) THEN
+          print *, "test 1"
           DO j=1,n
-            !_ELMER_OMP_SIMD PRIVATE(l,k)
+            !!_ELMER_OMP_SIMD PRIVATE(l,k)
             DO i=1,n
-!DIR$ LOOP COUNT MAX=3
-!DIR$ UNROLL
+!!DIR$ LOOP COUNT MAX=3
+!!DIR$ UNROLL
               DO k=1,dim
                 DO l=ii,iin
                   G(i,j) = G(i,j) + GradU(l,i,k)*GradU(l,j,k)*weight(l)
@@ -98,11 +99,12 @@ CONTAINS
             END DO
           END DO
         ELSE
+          !$omp target teams distribute parallel do reduction(+:G) collapse(4)
           DO j=1,n
-            !_ELMER_OMP_SIMD PRIVATE(l,k)
+            !!_ELMER_OMP_SIMD PRIVATE(l,k)
             DO i=1,n
-!DIR$ LOOP COUNT MAX=3
-!DIR$ UNROLL
+!!DIR$ LOOP COUNT MAX=3
+!!DIR$ UNROLL
               DO k=1,dim
                 DO l=ii,iin
                   G(i,j) = G(i,j) + GradU(l,i,k)*GradU(l,j,k)*weight(l)*alpha(l)
@@ -110,19 +112,22 @@ CONTAINS
               END DO
             END DO
           END DO
+          !$omp end target teams distribute parallel do
         END IF
       ELSE
         DO k=1, dim
           IF (noAlphaWeight) THEN
+            print *, "test 3"
             DO j=1,n
-              !_ELMER_OMP_SIMD
+              !1_ELMER_OMP_SIMD
               DO i=ii,iin
                 wrk(i-ii+1,j)=weight(i)*GradU(i,j,k)
               END DO
             END DO
           ELSE
+            print *, "test 4"
             DO j=1,n
-              !_ELMER_OMP_SIMD
+              !!_ELMER_OMP_SIMD
               DO i=ii,iin
                 wrk(i-ii+1,j)=weight(i)*alpha(i)*GradU(i,j,k)
               END DO
