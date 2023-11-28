@@ -172,7 +172,7 @@ CONTAINS
         TimeCoeff(:), SourceCoeff(:), Velo1Coeff(:), Velo2Coeff(:), Velo3Coeff(:)
     REAL(KIND=dp), SAVE, POINTER  :: VeloCoeff(:,:)
     LOGICAL :: Stat,Found
-    INTEGER :: i,t,p,q,dim,ngp,allocstat
+    INTEGER :: i,t,p,q,dim,ngp,allocstat,el
     TYPE(GaussIntegrationPoints_t) :: IP
     TYPE(Nodes_t), SAVE :: Nodes
 
@@ -245,7 +245,12 @@ CONTAINS
     ! STIFF=STIFF+(D*grad(u),grad(v))
     DiffCoeff => ListGetElementRealVec( DiffCoeff_h, ngp, Basis, Element, Found ) 
     IF( Found ) THEN
-      CALL LinearForms_GradUdotGradU(ngp, nd, Element % TYPE % DIMENSION, dBasisdx, DetJ, STIFF, DiffCoeff )
+      el = Element % TYPE % DIMENSION
+      !$omp target teams distribute parallel do !!!map(to: ngp, nd, el, dBasisdx, DetJ, DiffCoeff) map(tofrom: STIFF)
+      DO i=1,1
+        CALL LinearForms_GradUdotGradU(ngp, nd, el, dBasisdx, DetJ, STIFF, DiffCoeff )
+      END DO
+      !$omp end target teams distribute parallel do
     END IF
 
     ! reaction term 

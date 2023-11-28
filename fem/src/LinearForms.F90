@@ -60,7 +60,7 @@ CONTAINS
   ! Compute bilinear form G=G+(alpha grad u, grad u) = grad u .dot. (alpha grad u) 
   SUBROUTINE LinearForms_GradUdotGradU(m, n, dim, GradU, weight, G, alpha)
     IMPLICIT NONE
-
+    !$omp declare target (LinearForms_GradUdotGradU)
     INTEGER, INTENT(IN) :: m, n, dim
     REAL(KIND=dp) CONTIG, INTENT(IN) :: GradU(:,:,:), weight(:)
     REAL(KIND=dp) CONTIG, INTENT(INOUT) :: G(:,:)
@@ -99,7 +99,7 @@ CONTAINS
             END DO
           END DO
         ELSE
-          !$omp target teams distribute parallel do reduction(+:G) collapse(4)
+        !!  !$omp target teams distribute parallel do reduction(+:G) collapse(4)
           DO j=1,n
             !!_ELMER_OMP_SIMD PRIVATE(l,k)
             DO i=1,n
@@ -112,7 +112,7 @@ CONTAINS
               END DO
             END DO
           END DO
-          !$omp end target teams distribute parallel do
+        !!  !$omp end target teams distribute parallel do
         END IF
       ELSE
         DO k=1, dim
@@ -134,9 +134,9 @@ CONTAINS
             END DO
           END IF
           ! Compute matrix \grad u \dot \grad u for dim=k
-          CALL DGEMM('T', 'N', n, n, blklen, &
-                1D0, GradU(ii,1,k), ldbasis, &
-                wrk, ldwrk, 1D0, G, ldk)
+     !!     CALL DGEMM('T', 'N', n, n, blklen, &
+     !!           1D0, GradU(ii,1,k), ldbasis, &
+       !!         wrk, ldwrk, 1D0, G, ldk)
         END DO
       END IF
     END DO ! Vector blocks
