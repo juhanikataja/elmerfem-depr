@@ -165,6 +165,7 @@ CONTAINS
     TYPE(Element_t), POINTER :: Element
     LOGICAL, INTENT(IN) :: VecAsm
     LOGICAL, INTENT(INOUT) :: InitHandles
+
 !------------------------------------------------------------------------------
     REAL(KIND=dp), ALLOCATABLE, SAVE :: Basis(:,:),dBasisdx(:,:,:), DetJ(:)
     REAL(KIND=dp), ALLOCATABLE, SAVE :: MASS(:,:), STIFF(:,:), FORCE(:)
@@ -244,34 +245,46 @@ CONTAINS
     ! diffusion term     
     ! STIFF=STIFF+(D*grad(u),grad(v))
     DiffCoeff => ListGetElementRealVec( DiffCoeff_h, ngp, Basis, Element, Found ) 
+!$omp target teams distribute parallel do map(to: ngp, nd, Element, Element % TYPE, dBasisdx, DetJ, DiffCoeff) map(tofrom: STIFF)
+DO i=1,1
     IF( Found ) THEN
-      el = Element % TYPE % DIMENSION
-      !$omp target teams distribute parallel do !!!map(to: ngp, nd, el, dBasisdx, DetJ, DiffCoeff) map(tofrom: STIFF)
-      DO i=1,1
-        CALL LinearForms_GradUdotGradU(ngp, nd, el, dBasisdx, DetJ, STIFF, DiffCoeff )
-      END DO
-      !$omp end target teams distribute parallel do
+        CALL LinearForms_GradUdotGradU(ngp, nd, Element % TYPE % DIMENSION, dBasisdx, DetJ, STIFF, DiffCoeff )
     END IF
+END DO
+!$omp end target teams distribute parallel do    
+  
 
     ! reaction term 
     ! STIFF=STIFF+(R*u,v)
     ReactCoeff => ListGetElementRealVec( ReactCoeff_h, ngp, Basis, Element, Found ) 
+!$omp target teams distribute parallel do map(to: ngp, nd, Element, Element % TYPE, Basis, DetJ, ReactCoeff) map(tofrom: STIFF)
+DO i=1,1
     IF( Found ) THEN    
       CALL LinearForms_UdotU(ngp, nd, Element % TYPE % DIMENSION, Basis, DetJ, STIFF, ReactCoeff )
     END IF
+END DO
+!$omp end target teams distribute parallel do   
     
     ! time derivative
     ! MASS=MASS+(rho*du/dt,v)
     TimeCoeff => ListGetElementRealVec( TimeCoeff_h, ngp, Basis, Element, Found ) 
+!$omp target teams distribute parallel do map(to: ngp, nd, Element, Element % TYPE, Basis, DetJ, TimeCoeff) map(tofrom: MASS)
+DO i=1,1    
     IF( Found ) THEN
       CALL LinearForms_UdotU(ngp, nd, Element % TYPE % DIMENSION, Basis, DetJ, MASS, TimeCoeff )
     END IF
-      
+END DO
+!$omp end target teams distribute parallel do       
+
     ! FORCE=FORCE+(u,f)
     SourceCoeff => ListGetElementRealVec( SourceCoeff_h, ngp, Basis, Element, Found ) 
+!!$omp target teams distribute parallel do map(to: ngp, nd, Basis, DetJ, SourceCoeff) map(tofrom: FORCE)
+DO i=1,1
     IF( Found ) THEN
       CALL LinearForms_UdotF(ngp, nd, Basis, DetJ, SourceCoeff, FORCE)
     END IF
+END DO
+!!$omp end target teams distribute parallel do     
 
     
     ! advection term
@@ -290,10 +303,13 @@ CONTAINS
         Velo3Coeff => ListGetElementRealVec( Velo3Coeff_h, ngp, Basis, Element, Found ) 
         IF( Found ) VeloCoeff(1:ngp,3) = Velo3Coeff(1:ngp)
       END IF
-      
+!$omp target teams distribute parallel do map(to: ngp, nd, Element, Element % TYPE, dBasisdx, Basis, DetJ, ConvCoeff, VeloCoeff) map(tofrom: STIFF)
+DO i=1,1      
       CALL LinearForms_GradUdotU(ngp, nd, Element % TYPE % DIMENSION, dBasisdx, Basis, DetJ, STIFF, &
           ConvCoeff, VeloCoeff )
-    END IF          
+END DO
+!$omp end target teams distribute parallel do              
+    END IF
 
     
     IF(TransientSimulation) CALL Default1stOrderTime(MASS,STIFF,FORCE,UElement=Element)

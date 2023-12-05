@@ -145,6 +145,7 @@ CONTAINS
   ! Compute bilinear form G=G+(alpha grad u, u) = u .dot. (alpha grad u) 
   SUBROUTINE LinearForms_GradUdotU(m, n, dim, GradU, U, weight, G, alpha, beta)
     IMPLICIT NONE
+    !$omp declare target (LinearForms_GradUdotU)
 
     INTEGER, INTENT(IN) :: m, n, dim
     REAL(KIND=dp) CONTIG, INTENT(IN) :: GradU(:,:,:), U(:,:), weight(:)
@@ -256,9 +257,9 @@ CONTAINS
             END DO
           END IF
           ! Compute matrix \grad u \dot u for dim=k
-          CALL DGEMM('T', 'N', n, n, blklen, &
-                1D0, U(ii,1), lbasis, &
-                wrk, ldwrk, 1D0, G, ldk)
+        !!!  CALL DGEMM('T', 'N', n, n, blklen, &
+        !!!       1D0, U(ii,1), lbasis, &
+        !!!       wrk, ldwrk, 1D0, G, ldk)
         END DO
       END IF
     END DO ! Vector blocks
@@ -268,6 +269,7 @@ CONTAINS
   ! Compute bilinear form G=G+(alpha u, v), where u and v can be different basis functions
   SUBROUTINE LinearForms_UdotV(m, n, dim, U, V, weight, G, alpha)
     IMPLICIT NONE
+    !$omp declare target (LinearForms_UdotV)
 
     INTEGER, INTENT(IN) :: m, n, dim
     REAL(KIND=dp) CONTIG, INTENT(IN) :: U(:,:), V(:,:), weight(:)
@@ -330,9 +332,9 @@ CONTAINS
              END DO
           END IF
           ! Compute matrix u \dot u
-          CALL DGEMM('T', 'N', n, n, blklen, &
-               1D0, U(ii,1), ldbasis, &
-               wrk, ldwrk, 1D0, G, ldk)
+       !!!   CALL DGEMM('T', 'N', n, n, blklen, &
+       !!!     1D0, U(ii,1), ldbasis, &
+       !!!     wrk, ldwrk, 1D0, G, ldk)
        END IF
     END DO ! Vector blocks
   END SUBROUTINE LinearForms_UdotV
@@ -340,6 +342,7 @@ CONTAINS
   ! Compute bilinear form G=G+(alpha u, u) = u .dot. (grad u) 
   SUBROUTINE LinearForms_UdotU(m, n, dim, U, weight, G, alpha)
     IMPLICIT NONE
+    !$omp declare target (LinearForms_UdotU)
 
     INTEGER, INTENT(IN) :: m, n, dim
     REAL(KIND=dp) CONTIG, INTENT(IN) :: U(:,:), weight(:)
@@ -402,9 +405,9 @@ CONTAINS
              END DO
           END IF
           ! Compute matrix u \dot u
-          CALL DGEMM('T', 'N', n, n, blklen, &
-               1D0, U(ii,1), ldbasis, &
-               wrk, ldwrk, 1D0, G, ldk)
+     !!!     CALL DGEMM('T', 'N', n, n, blklen, &
+     !!!       1D0, U(ii,1), ldbasis, &
+     !!!       wrk, ldwrk, 1D0, G, ldk)
        END IF
     END DO ! Vector blocks
   END SUBROUTINE LinearForms_UdotU
@@ -433,6 +436,7 @@ CONTAINS
   ! Compute linear form UdotF=UdotF+(u,f) 
   SUBROUTINE LinearForms_UdotF(m, n, U, weight, F, UdotF, alpha)
     IMPLICIT NONE
+    !!$omp declare target (LinearForms_UdotF)
 
     INTEGER, INTENT(IN) :: m, n
     REAL(KIND=dp) CONTIG, INTENT(IN) :: U(:,:), F(:), weight(:)
@@ -481,8 +485,8 @@ CONTAINS
           END DO
         END IF
 
-        CALL DGEMV('T', blklen, n, &
-              1D0, U(ii,1), SIZE(U,1), wrk, 1, 1D0, UdotF, 1)
+      !!!  CALL DGEMV('T', blklen, n, &
+      !!!      1D0, U(ii,1), SIZE(U,1), wrk, 1, 1D0, UdotF, 1)
       END IF
     END DO
   END SUBROUTINE LinearForms_UdotF
