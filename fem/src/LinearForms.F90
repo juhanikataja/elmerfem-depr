@@ -60,7 +60,7 @@ CONTAINS
   ! Compute bilinear form G=G+(alpha grad u, grad u) = grad u .dot. (alpha grad u) 
   SUBROUTINE LinearForms_GradUdotGradU(m, n, dim, GradU, weight, G, alpha)
     IMPLICIT NONE
-
+    !$omp declare target (LinearForms_GradUdotGradU)
     INTEGER, INTENT(IN) :: m, n, dim
     REAL(KIND=dp) CONTIG, INTENT(IN) :: GradU(:,:,:), weight(:)
     REAL(KIND=dp) CONTIG, INTENT(INOUT) :: G(:,:)
@@ -69,7 +69,7 @@ CONTAINS
     REAL(KIND=dp) :: wrk(VECTOR_BLOCK_LENGTH,n)
     INTEGER :: i, ii, iin, j, l, k, kk, ldbasis, ldwrk, ldk, blklen
     LOGICAL :: noAlphaWeight
-!DIR$ ATTRIBUTES ALIGN:64::wrk
+!!DIR$ ATTRIBUTES ALIGN:64::wrk
 
     ldbasis = SIZE(GradU,1)
     ldwrk = SIZE(wrk,1)
@@ -85,11 +85,13 @@ CONTAINS
       IF (blklen < VECTOR_SMALL_THRESH) THEN
         ! Do not attempt to call BLAS for small cases to avoid preprocessing overhead
         IF (noAlphaWeight) THEN
+          print *, "Branch 0"
+!!$omp target teams distribute parallel do reduction(+:G) collapse(4)
           DO j=1,n
-            !_ELMER_OMP_SIMD PRIVATE(l,k)
+            !!_ELMER_OMP_SIMD PRIVATE(l,k)
             DO i=1,n
-!DIR$ LOOP COUNT MAX=3
-!DIR$ UNROLL
+!!DIR$ LOOP COUNT MAX=3
+!!DIR$ UNROLL
               DO k=1,dim
                 DO l=ii,iin
                   G(i,j) = G(i,j) + GradU(l,i,k)*GradU(l,j,k)*weight(l)
@@ -97,12 +99,14 @@ CONTAINS
               END DO
             END DO
           END DO
+!!$omp end target teams distribute parallel do
         ELSE
+          !!print *, "Branch 1"
           DO j=1,n
-            !_ELMER_OMP_SIMD PRIVATE(l,k)
+            !!_ELMER_OMP_SIMD PRIVATE(l,k)
             DO i=1,n
-!DIR$ LOOP COUNT MAX=3
-!DIR$ UNROLL
+!!DIR$ LOOP COUNT MAX=3
+!!DIR$ UNROLL
               DO k=1,dim
                 DO l=ii,iin
                   G(i,j) = G(i,j) + GradU(l,i,k)*GradU(l,j,k)*weight(l)*alpha(l)
@@ -114,24 +118,26 @@ CONTAINS
       ELSE
         DO k=1, dim
           IF (noAlphaWeight) THEN
+            print *, "Branch 2"
             DO j=1,n
-              !_ELMER_OMP_SIMD
+              !!_ELMER_OMP_SIMD
               DO i=ii,iin
                 wrk(i-ii+1,j)=weight(i)*GradU(i,j,k)
               END DO
             END DO
           ELSE
+            print *, "Branch 3"
             DO j=1,n
-              !_ELMER_OMP_SIMD
+              !!_ELMER_OMP_SIMD
               DO i=ii,iin
                 wrk(i-ii+1,j)=weight(i)*alpha(i)*GradU(i,j,k)
               END DO
             END DO
           END IF
           ! Compute matrix \grad u \dot \grad u for dim=k
-          CALL DGEMM('T', 'N', n, n, blklen, &
-                1D0, GradU(ii,1,k), ldbasis, &
-                wrk, ldwrk, 1D0, G, ldk)
+       !!   CALL DGEMM('T', 'N', n, n, blklen, &
+       !!         1D0, GradU(ii,1,k), ldbasis, &
+       !!         wrk, ldwrk, 1D0, G, ldk)
         END DO
       END IF
     END DO ! Vector blocks
@@ -335,7 +341,7 @@ CONTAINS
   ! Compute bilinear form G=G+(alpha u, u) = u .dot. (grad u) 
   SUBROUTINE LinearForms_UdotU(m, n, dim, U, weight, G, alpha)
     IMPLICIT NONE
-
+    !$omp declare target (LinearForms_UdotU)
     INTEGER, INTENT(IN) :: m, n, dim
     REAL(KIND=dp) CONTIG, INTENT(IN) :: U(:,:), weight(:)
     REAL(KIND=dp) CONTIG, INTENT(INOUT) :: G(:,:)
@@ -344,7 +350,7 @@ CONTAINS
     REAL(KIND=dp) :: wrk(VECTOR_BLOCK_LENGTH,n)
     INTEGER :: i, ii, iin, j, l, ldbasis, ldwrk, ldk, blklen
     LOGICAL :: noAlphaWeight
-!DIR$ ATTRIBUTES ALIGN:64::wrk
+!!DIR$ ATTRIBUTES ALIGN:64::wrk
 
     ldbasis = SIZE(U,1)
     ldwrk = SIZE(wrk,1)
@@ -361,9 +367,9 @@ CONTAINS
           ! Do not attempt to call BLAS for small cases to avoid preprocessing overhead
           IF (noAlphaWeight) THEN
              DO j=1,n
-                !_ELMER_OMP_SIMD PRIVATE(l)
+                !!_ELMER_OMP_SIMD PRIVATE(l)
                 DO i=1,n
-                   !DIR$ LOOP COUNT MAX=3
+                   !!DIR$ LOOP COUNT MAX=3
                    DO l=ii,iin
                       G(i,j) = G(i,j) + U(l,i)*U(l,j)*weight(l)
                    END DO
@@ -371,9 +377,9 @@ CONTAINS
              END DO
           ELSE
              DO j=1,n
-                !_ELMER_OMP_SIMD PRIVATE(l)
+                !!_ELMER_OMP_SIMD PRIVATE(l)
                 DO i=1,n
-                   !DIR$ LOOP COUNT MAX=3
+                   !!DIR$ LOOP COUNT MAX=3
                    DO l=ii,iin
                       G(i,j) = G(i,j) + U(l,i)*U(l,j)*weight(l)*alpha(l)
                    END DO
@@ -383,23 +389,23 @@ CONTAINS
        ELSE
           IF (noAlphaWeight) THEN
              DO j=1,n
-                !_ELMER_OMP_SIMD
+                !!_ELMER_OMP_SIMD
                 DO i=ii,iin
                    wrk(i-ii+1,j)=weight(i)*U(i,j)
                 END DO
              END DO
           ELSE
              DO j=1,n
-                !_ELMER_OMP_SIMD
+                !!_ELMER_OMP_SIMD
                 DO i=ii,iin
                    wrk(i-ii+1,j)=weight(i)*alpha(i)*U(i,j)
                 END DO
              END DO
           END IF
           ! Compute matrix u \dot u
-          CALL DGEMM('T', 'N', n, n, blklen, &
-               1D0, U(ii,1), ldbasis, &
-               wrk, ldwrk, 1D0, G, ldk)
+        !!  CALL DGEMM('T', 'N', n, n, blklen, &
+        !!       1D0, U(ii,1), ldbasis, &
+        !!       wrk, ldwrk, 1D0, G, ldk)
        END IF
     END DO ! Vector blocks
   END SUBROUTINE LinearForms_UdotU
@@ -428,6 +434,7 @@ CONTAINS
   ! Compute linear form UdotF=UdotF+(u,f) 
   SUBROUTINE LinearForms_UdotF(m, n, U, weight, F, UdotF, alpha)
     IMPLICIT NONE
+    !$omp declare target (LinearForms_UdotF)
 
     INTEGER, INTENT(IN) :: m, n
     REAL(KIND=dp) CONTIG, INTENT(IN) :: U(:,:), F(:), weight(:)
@@ -437,7 +444,7 @@ CONTAINS
     REAL(KIND=dp) :: wrk(VECTOR_BLOCK_LENGTH)
     INTEGER :: i, ii, iin, j, blklen, l
     LOGICAL :: noAlphaWeight
-!DIR$ ATTRIBUTES ALIGN:64::wrk
+!!DIR$ ATTRIBUTES ALIGN:64::wrk
 
     noAlphaWeight = .TRUE.
     IF (PRESENT(alpha)) noAlphaWeight = .FALSE.
@@ -449,14 +456,14 @@ CONTAINS
 
       IF (blklen < VECTOR_SMALL_THRESH) THEN
         IF (noAlphaWeight) THEN
-          !_ELMER_OMP_SIMD PRIVATE(l)
+          !!_ELMER_OMP_SIMD PRIVATE(l)
           DO i=1,n
             DO l=ii,iin
               UdotF(i) = UdotF(i) + U(l,i)*F(l)*weight(l)
             END DO
           END DO
         ELSE
-          !_ELMER_OMP_SIMD PRIVATE(l)
+          !!_ELMER_OMP_SIMD PRIVATE(l)
           DO i=1,n
             DO l=ii,iin
               UdotF(i) = UdotF(i) + U(l,i)*F(l)*weight(l)*alpha(l)
@@ -465,19 +472,19 @@ CONTAINS
         END IF
       ELSE
         IF (noAlphaWeight) THEN
-          !_ELMER_OMP_SIMD
+          !!_ELMER_OMP_SIMD
           DO i=ii,iin
             wrk(i-ii+1) = weight(i)*F(i)
           END DO
         ELSE
-          !_ELMER_OMP_SIMD 
+          !!_ELMER_OMP_SIMD 
           DO i=ii,iin
             wrk(i-ii+1) = weight(i)*F(i)*alpha(i)
           END DO
         END IF
 
-        CALL DGEMV('T', blklen, n, &
-              1D0, U(ii,1), SIZE(U,1), wrk, 1, 1D0, UdotF, 1)
+      !!  CALL DGEMV('T', blklen, n, &
+      !!        1D0, U(ii,1), SIZE(U,1), wrk, 1, 1D0, UdotF, 1)
       END IF
     END DO
   END SUBROUTINE LinearForms_UdotF
