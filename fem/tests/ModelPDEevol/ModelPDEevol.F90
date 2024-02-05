@@ -73,20 +73,20 @@ SUBROUTINE AdvDiffSolver( Model,Solver,dt,TransientSimulation )
     
     CALL ResetTimer( Caller//'BulkAssembly' )
 
-    !!$OMP PARALLEL &
-    !!$OMP SHARED(Solver, Active, nColours, VecAsm) &
-    !!$OMP PRIVATE(t, Element, n, nd, nb,col, InitHandles) &
-    !!$OMP REDUCTION(+:totelem) DEFAULT(NONE)
+    !$OMP PARALLEL &
+    !$OMP SHARED(Solver, Active, nColours, VecAsm) &
+    !$OMP PRIVATE(t, Element, n, nd, nb,col, InitHandles) &
+    !$OMP REDUCTION(+:totelem) DEFAULT(NONE)
    
     DO col=1,nColours
       
-      !!$OMP SINGLE
+      !$OMP SINGLE
       CALL Info( Caller,'Assembly of colour: '//I2S(col),Level=15)
       Active = GetNOFActive(Solver)
-      !!$OMP END SINGLE
+      !$OMP END SINGLE
 
       InitHandles = .TRUE.
-      !!$OMP DO
+      !$OMP DO
       DO t=1,Active
         Element => GetActiveElement(t)
         totelem = totelem + 1
@@ -95,9 +95,9 @@ SUBROUTINE AdvDiffSolver( Model,Solver,dt,TransientSimulation )
         nb = GetElementNOFBDOFs(Element)
         CALL LocalMatrixVec(  Element, n, nd+nb, nb, VecAsm, InitHandles )
       END DO
-      !!$OMP END DO
+      !$OMP END DO
     END DO
-    !!$OMP END PARALLEL 
+    !$OMP END PARALLEL 
 
     CALL CheckTimer(Caller//'BulkAssembly',Delete=.TRUE.)
     totelem = 0
@@ -165,7 +165,6 @@ CONTAINS
     TYPE(Element_t), POINTER :: Element
     LOGICAL, INTENT(IN) :: VecAsm
     LOGICAL, INTENT(INOUT) :: InitHandles
-
 !------------------------------------------------------------------------------
     REAL(KIND=dp), ALLOCATABLE, SAVE :: Basis(:,:),dBasisdx(:,:,:), DetJ(:)
     REAL(KIND=dp), ALLOCATABLE, SAVE :: MASS(:,:), STIFF(:,:), FORCE(:)
@@ -173,21 +172,21 @@ CONTAINS
         TimeCoeff(:), SourceCoeff(:), Velo1Coeff(:), Velo2Coeff(:), Velo3Coeff(:)
     REAL(KIND=dp), SAVE, POINTER  :: VeloCoeff(:,:)
     LOGICAL :: Stat,Found
-    INTEGER :: i,t,p,q,dim,ngp,allocstat,el
+    INTEGER :: i,t,p,q,dim,ngp,allocstat
     TYPE(GaussIntegrationPoints_t) :: IP
     TYPE(Nodes_t), SAVE :: Nodes
 
     TYPE(ValueHandle_t), SAVE :: SourceCoeff_h, DiffCoeff_h, ReactCoeff_h, TimeCoeff_h, ConvCoeff_h, &
         Velo1Coeff_h, Velo2Coeff_h, Velo3Coeff_h
     
-    !!!$OMP THREADPRIVATE(Basis, dBasisdx, DetJ, &
-    !!!$OMP               MASS, STIFF, FORCE, Nodes, &
-    !!!$OMP               SourceCoeff_h, DiffCoeff_h, ReactCoeff_h, TimeCoeff_h, &
-    !!!$OMP               ConvCoeff_h, Velo1Coeff_h, Velo2Coeff_h, Velo3Coeff_h, &
-    !!!$OMP               SourceCoeff, DiffCoeff, ReactCoeff, TimeCoeff, &
-    !!!$OMP               ConvCoeff, Velo1Coeff, Velo2Coeff, Velo3Coeff, VeloCoeff )
-    !!!DIR$ ATTRIBUTES ALIGN:64 :: Basis, dBasisdx, DetJ
-    !!!DIR$ ATTRIBUTES ALIGN:64 :: MASS, STIFF, FORCE
+    !$OMP THREADPRIVATE(Basis, dBasisdx, DetJ, &
+    !$OMP               MASS, STIFF, FORCE, Nodes, &
+    !$OMP               SourceCoeff_h, DiffCoeff_h, ReactCoeff_h, TimeCoeff_h, &
+    !$OMP               ConvCoeff_h, Velo1Coeff_h, Velo2Coeff_h, Velo3Coeff_h, &
+    !$OMP               SourceCoeff, DiffCoeff, ReactCoeff, TimeCoeff, &
+    !$OMP               ConvCoeff, Velo1Coeff, Velo2Coeff, Velo3Coeff, VeloCoeff )
+    !DIR$ ATTRIBUTES ALIGN:64 :: Basis, dBasisdx, DetJ
+    !DIR$ ATTRIBUTES ALIGN:64 :: MASS, STIFF, FORCE
 !------------------------------------------------------------------------------
 
     ! This InitHandles flag might be false on threaded 1st call
@@ -245,46 +244,29 @@ CONTAINS
     ! diffusion term     
     ! STIFF=STIFF+(D*grad(u),grad(v))
     DiffCoeff => ListGetElementRealVec( DiffCoeff_h, ngp, Basis, Element, Found ) 
-!$omp target teams distribute parallel do map(to: ngp, nd, Element, Element % TYPE, dBasisdx, DetJ, DiffCoeff) map(tofrom: STIFF)
-DO i=1,1
     IF( Found ) THEN
-        CALL LinearForms_GradUdotGradU(ngp, nd, Element % TYPE % DIMENSION, dBasisdx, DetJ, STIFF, DiffCoeff )
+      CALL LinearForms_GradUdotGradU(ngp, nd, Element % TYPE % DIMENSION, dBasisdx, DetJ, STIFF, DiffCoeff )
     END IF
-END DO
-!$omp end target teams distribute parallel do    
-  
 
     ! reaction term 
     ! STIFF=STIFF+(R*u,v)
     ReactCoeff => ListGetElementRealVec( ReactCoeff_h, ngp, Basis, Element, Found ) 
-!$omp target teams distribute parallel do map(to: ngp, nd, Element, Element % TYPE, Basis, DetJ, ReactCoeff) map(tofrom: STIFF)
-DO i=1,1
     IF( Found ) THEN    
       CALL LinearForms_UdotU(ngp, nd, Element % TYPE % DIMENSION, Basis, DetJ, STIFF, ReactCoeff )
     END IF
-END DO
-!$omp end target teams distribute parallel do   
     
     ! time derivative
     ! MASS=MASS+(rho*du/dt,v)
     TimeCoeff => ListGetElementRealVec( TimeCoeff_h, ngp, Basis, Element, Found ) 
-!$omp target teams distribute parallel do map(to: ngp, nd, Element, Element % TYPE, Basis, DetJ, TimeCoeff) map(tofrom: MASS)
-DO i=1,1    
     IF( Found ) THEN
       CALL LinearForms_UdotU(ngp, nd, Element % TYPE % DIMENSION, Basis, DetJ, MASS, TimeCoeff )
     END IF
-END DO
-!$omp end target teams distribute parallel do       
-
+      
     ! FORCE=FORCE+(u,f)
     SourceCoeff => ListGetElementRealVec( SourceCoeff_h, ngp, Basis, Element, Found ) 
-!!$omp target teams distribute parallel do map(to: ngp, nd, Basis, DetJ, SourceCoeff) map(tofrom: FORCE)
-DO i=1,1
     IF( Found ) THEN
       CALL LinearForms_UdotF(ngp, nd, Basis, DetJ, SourceCoeff, FORCE)
     END IF
-END DO
-!!$omp end target teams distribute parallel do     
 
     
     ! advection term
@@ -303,13 +285,10 @@ END DO
         Velo3Coeff => ListGetElementRealVec( Velo3Coeff_h, ngp, Basis, Element, Found ) 
         IF( Found ) VeloCoeff(1:ngp,3) = Velo3Coeff(1:ngp)
       END IF
-!$omp target teams distribute parallel do map(to: ngp, nd, Element, Element % TYPE, dBasisdx, Basis, DetJ, ConvCoeff, VeloCoeff) map(tofrom: STIFF)
-DO i=1,1      
+      
       CALL LinearForms_GradUdotU(ngp, nd, Element % TYPE % DIMENSION, dBasisdx, Basis, DetJ, STIFF, &
           ConvCoeff, VeloCoeff )
-END DO
-!$omp end target teams distribute parallel do              
-    END IF
+    END IF          
 
     
     IF(TransientSimulation) CALL Default1stOrderTime(MASS,STIFF,FORCE,UElement=Element)
