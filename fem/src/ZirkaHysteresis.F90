@@ -59,7 +59,7 @@ TYPE :: RevCurve_t  ! {{{
   TYPE(SplineLoop_t), POINTER :: bigloop => NULL()
   PROCEDURE(SimpleEvalRevCurve), POINTER :: simple_eval => SimpleEvalRevCurve
   CONTAINS
-  ! PROCEDURE :: simple_eval => SimpleEvalRevCurve
+  !  PROCEDURE :: simple_eval => SimpleEvalRevCurve
   PROCEDURE :: eval => RecurEvalCurve
 END TYPE RevCurve_t ! }}}
 
@@ -463,19 +463,19 @@ END SUBROUTINE EvalSplineLoopSingle ! }}}
 RECURSIVE FUNCTION SimpleEvalRevCurve(rc, B) result(H) ! {{{
   CLASS(RevCurve_t), INTENT(IN), target :: rc
   REAL(KIND=dp), INTENT(IN) :: B
-  REAL(KIND=dp) :: H
+  REAL(KIND=dp), intent(out) :: H
   !-------------------------------------------------------------------------------
   REAL(KIND=dp) :: Hap,  Hp, x, dHout, dH, HMAsc, HMDesc
   !-------------------------------------------------------------------------------
 #if 0
   depthtest: if (rc%depth > 2) then 
-    Hp = rc % parent % simple_eval(B)
-    Hap = rc % parent % parent % simple_eval(B)
+    Hp = rc % parent % simple_eval(rc%parent, B)
+    Hap = rc % parent % parent % simple_eval(rc%parent%parent, B)
   else
     call rc % bigloop % eval(B, HMAsc, HMDesc)
     IF (rc % depth == 2) then
       Hap = HMDesc
-      Hp = rc % parent % simple_eval(B)
+      Hp = rc % parent % simple_eval(rc%parent, B)
       exit depthtest
     end if
     IF (rc % depth == 1 ) then
@@ -487,8 +487,8 @@ RECURSIVE FUNCTION SimpleEvalRevCurve(rc, B) result(H) ! {{{
     IF (rc % depth == -1) H = HMAsc
   endif depthtest 
 #else
-  Hp = rc % parent % simple_eval(B)
-  Hap = rc % parent % parent % simple_eval(B)
+  Hp = rc % parent % simple_eval(rc%parent, B)
+  Hap = rc % parent % parent % simple_eval(rc%parent%parent, B)
 #endif
   if (rc % depth > 0) then 
     x = (rc % Bq - B )/rc % dBrev
@@ -538,18 +538,18 @@ function mc_eval(mc, B, dhdb, cached) result(H) ! {{{
   end if
 end function ! }}}
 
-FUNCTION RecurEvalCurve(rc, B) result (H) ! {{{
+recursive FUNCTION RecurEvalCurve(rc, B) result (H) ! {{{
   IMPLICIT NONE
   CLASS(RevCurve_t), TARGET,  INTENT(IN) :: rc
-  REAL(KIND=dp), INTENT(IN) :: B
+  REAL(KIND=dp), intent(in) :: B
+  real(kind=dp), intent(out) :: H
   CLASS(RevCurve_t), POINTER :: rc_p
-  real(kind=dp) :: H
   integer :: d
 
   rc_p => rc
   d = rc_p % depth
   rc_p => RecurseDepth(rc_p, B)
-  H = rc_p % simple_eval(B)
+  H = rc_p % simple_eval(rc_p, B)
 
 END FUNCTION ! }}}
 
@@ -673,8 +673,8 @@ SUBROUTINE AddStack(parent, master, B) ! {{{
   x % dBrev = x%Bq - x%Bp
   dBout = x % Bq - parent % parent % Bp
   call master % ABCparams % GetABC(abs(dBout), abs(x % dBrev), x%a, x%b, x%c)
-  Hpp = x % parent % parent % simple_eval(B)
-  Hp = x % parent % simple_eval(B)
+  Hpp = x % parent % parent % simple_eval(x%parent%parent, B)
+  Hp = x % parent % simple_eval(x%parent, B)
   x % dHrev = Hpp - Hp;
   ! parent => x
   master % head  => x
@@ -742,9 +742,9 @@ end subroutine ! }}}
 
 SUBROUTINE rc_printeval(rc, B, rc0) ! {{{
   implicit none
-  class(revcurve_t), pointer, intent(in) :: rc
-  class(revcurve_t), pointer, intent(in), optional :: rc0
-  real(kind=dp), intent(in) :: B 
+   class(revcurve_t), pointer, intent(in) :: rc
+   real(kind=dp), intent(in) :: B 
+   class(revcurve_t), pointer, intent(in), optional :: rc0
   real(kind=dp) :: X, X0
   class(revcurve_t), pointer :: rc_p, rc0_p
   integer :: k
@@ -752,18 +752,19 @@ SUBROUTINE rc_printeval(rc, B, rc0) ! {{{
   if (present(rc0)) rc0_p => rc0
   k = rc_p % depth
   do while (.not. associated(rc_p, rc_p % parent % parent))
-    if(present(rc0)) X0 = rc0_p % simple_eval(B)
-    X = rc_p % simple_eval(B)
+    if(present(rc0)) X0 = rc0_p % simple_eval(rc0_p, B)
+    X = rc_p % simple_eval(rc_p, B)
     if (present(rc0)) print *, X, X0, X-X0
     if (.not. present(rc0)) print *, X, rc_p % depth ! , c_loc(rc_p), c_loc(rc_p % parent)
     rc_p => rc_p % parent
     if(present(rc0)) rc0_p => rc0_p % parent
   end do
-  X = rc_p % simple_eval(B)
-  if(present(rc0)) X0 = rc0_p % simple_eval(B)
+  X = rc_p % simple_eval(rc_p, B)
+  if(present(rc0)) X0 = rc0_p % simple_eval(rc0, B)
   if (present(rc0)) print *, X, X0, X-X0
   if (.not. present(rc0)) print *, X, rc_p % depth ! , c_loc(rc_p), c_loc(rc_p % parent)
 END SUBROUTINE rc_printeval ! }}}
+
 ! Debugging purposes only
 subroutine PrintRevCurve(rc0) ! {{{
   CLASS(RevCurve_t), POINTER, intent(in) :: rc0
