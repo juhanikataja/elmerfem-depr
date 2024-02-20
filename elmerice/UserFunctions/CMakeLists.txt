@@ -37,6 +37,7 @@ IF(NOT(WIN32))
     SET_TARGET_PROPERTIES(ElmerIceUSF PROPERTIES 
                           INSTALL_RPATH ${ELMERSOLVER_RPATH_STRING})
 ENDIF()
-TARGET_LINK_LIBRARIES(ElmerIceUSF elmersolver ElmerIceUtils)
+# TARGET_LINK_LIBRARIES(ElmerIceUSF elmersolver ElmerIceUtils)
+TARGET_LINK_LIBRARIES(ElmerIceUSF ElmerIceUtils) # TODO: hack
 INSTALL(TARGETS ElmerIceUSF LIBRARY DESTINATION "share/elmersolver/lib"
 	    RUNTIME DESTINATION "share/elmersolver/lib")

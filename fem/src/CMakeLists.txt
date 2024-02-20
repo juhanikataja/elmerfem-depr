@@ -145,10 +145,14 @@ IF (NOT MPI_FOUND)
 ENDIF()
 
 ADD_LIBRARY(mpi_stubs SHARED mpif_stubs.F90)
+# TODO: hack
+ADD_LIBRARY(elmersolverstatic STATIC ${solverlib_SOURCES})
 ADD_LIBRARY(elmersolver SHARED ${solverlib_SOURCES})
 SET_TARGET_PROPERTIES(mpi_stubs
                       PROPERTIES LINKER_LANGUAGE Fortran)
 SET_TARGET_PROPERTIES(elmersolver
+                      PROPERTIES LINKER_LANGUAGE Fortran)
+SET_TARGET_PROPERTIES(elmersolverstatic
                       PROPERTIES LINKER_LANGUAGE Fortran)
 
 #We want MMG & Zoltan in the RPATH (if found), but given how many other 
@@ -339,12 +343,15 @@ ENDIF()
 # Installation rules
 INSTALL(FILES elements.def SOLVER.KEYWORDS DESTINATION "share/elmersolver/lib")
 
+TARGET_LINK_LIBRARIES(elmersolverstatic elmersolver)
 
 IF(NOT(WIN32))
   IF(WITH_MPI)
     INSTALL(TARGETS Solver_TGT elmersolver RUNTIME DESTINATION "bin"
       LIBRARY DESTINATION "${ELMER_INSTALL_LIB_DIR}")
     INSTALL(TARGETS Solver_TGT RUNTIME DESTINATION "bin"
+      LIBRARY DESTINATION "${ELMER_INSTALL_LIB_DIR}")
+    INSTALL(TARGETS elmersolverstatic RUNTIME DESTINATION "bin"
       LIBRARY DESTINATION "${ELMER_INSTALL_LIB_DIR}")
   ELSE()
     INSTALL(TARGETS Solver_TGT elmersolver mpi_stubs RUNTIME DESTINATION "bin" 

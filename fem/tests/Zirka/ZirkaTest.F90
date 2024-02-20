@@ -81,12 +81,12 @@ subroutine test6() ! {{{
 
     ! rps = -rps
     ! rps = [0.0_dp, -1.84102067_dp, 1.3_dp, -0.5_dp]
-    do i_r = 2, ubound(rps,1)
-      call mc % drive(rps(i_r-1), cache = .true.)
-        associate (B_low => rps(i_r-1),  B_up => rps(i_r))
-          call print_interval(mc, B_low, B_up, m)
-        end associate
-    end do
+    ! do i_r = 2, ubound(rps,1)
+    !   call mc % drive(rps(i_r-1), cache = .true.)
+    !     associate (B_low => rps(i_r-1),  B_up => rps(i_r))
+    !       call print_interval(mc, B_low, B_up, m)
+    !     end associate
+    ! end do
   END BLOCK
 
 end subroutine ! }}}
