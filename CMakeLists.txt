@@ -90,6 +90,8 @@ SET(WITH_MMG FALSE CACHE BOOL "Compile with MMG library.")
 
 SET(WITH_Zoltan FALSE CACHE BOOL "Link in Zoltan mesh repartitioning library.")
 
+SET(WITH_STATICLIBRARY FALSE CACHE BOOL "Build static version of elmersolver library too.")
+
 # Let user select if the contiguous attribute is used or not
 SET(USE_CONTIGUOUS FALSE CACHE BOOL "Use contiguous attribute")
 

@@ -117,6 +117,13 @@ IF(WIN32)
 	  ${CMAKE_CURRENT_BINARY_DIR}/elmerld.bat)
 ENDIF()
 
+# TODO(hacky): Works on unix elmerf90 script only
+IF(WITH_STATICLIBRARY)
+  SET(ELMERLIBRARY_DEFAULT_LINKING "-Llibelmersolverstatic.a")#CACHE STRING "Default linking target to be included in elmerf90 compiler" FORCE)
+ELSE()
+  SET(ELMERLIBRARY_DEFAULT_LINKING "-lelmersolver")# CACHE STRING "Default linking target to be included in elmerf90 compiler" FORCE)
+ENDIF()
+
 CONFIGURE_FILE(${CMAKE_CURRENT_SOURCE_DIR}/elmerf90-nosh.in.cmake
   ${CMAKE_CURRENT_BINARY_DIR}/elmerf90-nosh)
 CONFIGURE_FILE(${CMAKE_CURRENT_SOURCE_DIR}/elmerf90.in.cmake
@@ -145,8 +152,10 @@ IF (NOT MPI_FOUND)
 ENDIF()
 
 ADD_LIBRARY(mpi_stubs SHARED mpif_stubs.F90)
-# TODO: hack
+
+# TODO: Hack.
 ADD_LIBRARY(elmersolverstatic STATIC ${solverlib_SOURCES})
+
 ADD_LIBRARY(elmersolver SHARED ${solverlib_SOURCES})
 SET_TARGET_PROPERTIES(mpi_stubs
                       PROPERTIES LINKER_LANGUAGE Fortran)
