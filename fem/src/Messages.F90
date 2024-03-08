@@ -189,11 +189,30 @@ CONTAINS
 !-----------------------------------------------------------------------
 
 
+
+#if defined _OPENMP && _OPENMP >= 201811
+!-----------------------------------------------------------------------
+!> Dummy subroutine for stdout logging in target regions
+!-----------------------------------------------------------------------
+  subroutine t_Warn(Caller, string, noAdvance)
+    !$omp declare target
+     CHARACTER(LEN=*) :: Caller, String
+     LOGICAL, OPTIONAL :: noAdvance
+!-----------------------------------------------------------------------
+  end subroutine
+!-----------------------------------------------------------------------
+#endif
+    
+
 !-----------------------------------------------------------------------
 !> When a suspicious incident takes place this subroutine may be used
 !> to inform the user.
 !-----------------------------------------------------------------------
    SUBROUTINE Warn( Caller, String, noAdvance )
+!-----------------------------------------------------------------------
+#if defined _OPENMP && _OPENMP >= 201811
+    !$omp declare variant (t_Warn) match( construct = {target})
+#endif
 !-----------------------------------------------------------------------
      CHARACTER(LEN=*) :: Caller, String
      LOGICAL, OPTIONAL :: noAdvance
