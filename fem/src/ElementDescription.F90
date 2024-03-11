@@ -4293,8 +4293,8 @@ CONTAINS
    FUNCTION ElementInfoVec( Element, Nodes, nc, u, v, w, detJ, nbmax, &
                Basis, dBasisdx, USolver ) RESULT(retval)
 !------------------------------------------------------------------------------
-    !$OMP DECLARE TARGET
      IMPLICIT NONE
+    !$OMP DECLARE TARGET
 
      TYPE(Element_t), TARGET :: Element    !< Element structure
      TYPE(Nodes_t)   :: Nodes              !< Element nodal coordinates.
@@ -4401,8 +4401,8 @@ CONTAINS
      
    FUNCTION ElementInfoVec_ComputePElementBasis(Element, Nodes, nc, u, v, w, DetJ, nbmax, Basis, &
       uWrk, vWrk, wWrk, BasisWrk, dBasisdxWrk, DetJWrk, LtoGmapsWrk, dBasisdx, USolver) RESULT(retval)
-    !$OMP DECLARE TARGET
      IMPLICIT NONE
+    !$OMP DECLARE TARGET
      TYPE(Element_t), TARGET :: Element    !< Element structure
      TYPE(Nodes_t)   :: Nodes              !< Element nodal coordinates.
      INTEGER, INTENT(IN) :: nc             !< Number of local coordinates to compute values of the basis function
@@ -5145,8 +5145,8 @@ CONTAINS
 !------------------------------------------------------------------------------
    
    SUBROUTINE ElementInfoVec_ElementBasisToGlobal(npts, nbasis, nbmax, dLBasisdx, dim, cdim, LtoGMap, offset, dBasisdx)
-    !$OMP DECLARE TARGET
      IMPLICIT NONE
+    !$OMP DECLARE TARGET
 
      INTEGER, INTENT(IN) :: npts
      INTEGER, INTENT(IN) :: nbasis
