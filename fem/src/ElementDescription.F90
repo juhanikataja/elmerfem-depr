@@ -76,8 +76,31 @@ MODULE ElementDescription
 ! !DIR$ ATTRIBUTES ALIGN:64::LtoGMapsWrk
 ! !DIR$ ATTRIBUTES ALIGN:64::DetJWrk
 ! !DIR$ ATTRIBUTES ALIGN:64::uWrk, vWrk, wWrk
+  private:: ErrorSilent, WarnSilent, FatalSilent
 
 CONTAINS
+
+#define NO_STDOUT
+#ifdef NO_STDOUT
+   SUBROUTINE WarnSilent( Caller, String, noAdvance )
+     CHARACTER(LEN=*) :: Caller, String
+     LOGICAL, OPTIONAL :: noAdvance
+   END SUBROUTINE
+
+   SUBROUTINE FatalSilent( Caller, String, noAdvance )
+     CHARACTER(LEN=*) :: Caller, String
+     LOGICAL, OPTIONAL :: noAdvance
+        STOP EXIT_ERROR
+   END SUBROUTINE
+
+   SUBROUTINE ErrorSilent( Caller, String, noAdvance )
+     CHARACTER(LEN=*) :: Caller, String
+     LOGICAL, OPTIONAL :: noAdvance
+   END SUBROUTINE
+#define Warn WarnSilent
+#define Fatal FatalSilent
+#define Error ErrorSilent
+#endif
 
 !------------------------------------------------------------------------------
     SUBROUTINE SwapRefElemNodes(p)
