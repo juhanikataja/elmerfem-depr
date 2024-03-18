@@ -82,6 +82,13 @@ CONTAINS
 
 #define NO_STDOUT
 #ifdef NO_STDOUT
+
+  SUBROUTINE InfoSilent( Caller, String, noAdvance, Level )
+     CHARACTER(LEN=*) :: Caller, String
+     INTEGER, OPTIONAL :: Level
+     LOGICAL, OPTIONAL :: noAdvance
+  END SUBROUTINE
+
    SUBROUTINE WarnSilent( Caller, String, noAdvance )
      CHARACTER(LEN=*) :: Caller, String
      LOGICAL, OPTIONAL :: noAdvance
@@ -100,6 +107,7 @@ CONTAINS
 #define Warn WarnSilent
 #define Fatal FatalSilent
 #define Error ErrorSilent
+#define Info InfoSilent
 #endif
 
 !------------------------------------------------------------------------------
