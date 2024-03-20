@@ -45,7 +45,7 @@
 
 MODULE LinearForms
   USE Types, ONLY: dp, VECTOR_BLOCK_LENGTH, VECTOR_SMALL_THRESH
-  USE Messages
+  !USE Messages
   IMPLICIT NONE
   PRIVATE
 
@@ -85,7 +85,7 @@ CONTAINS
       IF (blklen < VECTOR_SMALL_THRESH) THEN
         ! Do not attempt to call BLAS for small cases to avoid preprocessing overhead
         IF (noAlphaWeight) THEN
-          print *, "Branch 0"
+  !        print *, "Branch 0"
 !!$omp target teams distribute parallel do reduction(+:G) collapse(4)
           DO j=1,n
             !!_ELMER_OMP_SIMD PRIVATE(l,k)
@@ -119,7 +119,7 @@ CONTAINS
       ELSE
         DO k=1, dim
           IF (noAlphaWeight) THEN
-            print *, "Branch 2"
+  !          print *, "Branch 2"
             DO j=1,n
               !!_ELMER_OMP_SIMD
               DO i=ii,iin
@@ -127,7 +127,7 @@ CONTAINS
               END DO
             END DO
           ELSE
-            print *, "Branch 3"
+  !          print *, "Branch 3"
             DO j=1,n
               !!_ELMER_OMP_SIMD
               DO i=ii,iin
