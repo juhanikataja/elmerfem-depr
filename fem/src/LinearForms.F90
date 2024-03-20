@@ -437,7 +437,7 @@ CONTAINS
   ! Compute linear form UdotF=UdotF+(u,f) 
   SUBROUTINE LinearForms_UdotF(m, n, U, weight, F, UdotF, alpha)
     IMPLICIT NONE
-    !$omp declare target (LinearForms_UdotF)
+    !$omp declare target 
 
     INTEGER, INTENT(IN) :: m, n
     REAL(KIND=dp) CONTIG, INTENT(IN) :: U(:,:), F(:), weight(:)
