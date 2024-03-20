@@ -799,8 +799,10 @@ MODULE Types
      TYPE(Variable_t), POINTER :: Variables
 
      TYPE(Nodes_t), POINTER :: Nodes => NULL()
-     TYPE(Element_t), DIMENSION(:), POINTER :: Elements => NULL(), &
-         Edges => NULL(), Faces => NULL()
+     TYPE(Element_t), POINTER :: Elements(:) => NULL(), &
+         Edges(:) => NULL(), Faces(:) => NULL()
+     !TYPE(Element_t), ALLOCATABLE :: Elements(:), &
+         !Edges(:), Faces(:)
      TYPE(Nodes_t), POINTER :: NodesOrig => NULL()
      TYPE(Nodes_t), POINTER :: NodesMapped => NULL()
 

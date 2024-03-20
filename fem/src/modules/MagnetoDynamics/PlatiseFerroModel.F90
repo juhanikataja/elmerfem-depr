@@ -40,6 +40,7 @@
 ! *****************************************************************************
 
 FUNCTION PlatiseFerroModel( model, n, B ) RESULT( H )
+  use, intrinsic :: ieee_arithmetic, only: isnan=>ieee_is_nan
   USE DefUtils
   IMPLICIT NONE
   TYPE(Model_t)   :: model

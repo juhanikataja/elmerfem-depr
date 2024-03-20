@@ -3084,6 +3084,7 @@ CONTAINS
 !------------------------------------------------------------------------------
   SUBROUTINE BulkAssembly()
 !------------------------------------------------------------------------------
+    use, intrinsic :: ieee_arithmetic, only: isnan=>ieee_is_nan
        
     INTEGER :: elem,t,i,j,k,p,q,n,nd, Rank, BodyId
     TYPE(GaussIntegrationPoints_t), TARGET :: IntegStuff

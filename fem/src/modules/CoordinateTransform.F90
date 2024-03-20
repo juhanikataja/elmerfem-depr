@@ -264,6 +264,7 @@ CONTAINS
    SUBROUTINE ComputeRotM(Element,CoordSys_ijk,CoordSys_ref,nn,nd, &
                    UsePDecomp, PDMaxIter, PDDetTol)
 !------------------------------------------------------------------------------
+    use, intrinsic :: ieee_arithmetic, only: isnan=>ieee_is_nan
     INTEGER :: nn, nd, ind
     TYPE(Element_t) :: Element
  
@@ -406,6 +407,7 @@ CONTAINS
   SUBROUTINE PolarDecomposition(RotMLoc, PDMaxIter, PDDetTol)
 !------------------------------------------------------------------------------ 
     USE DefUtils
+    use, intrinsic :: ieee_arithmetic, only: isnan=>ieee_is_nan
     IMPLICIT NONE
     REAL(KIND=dp) :: RotMLoc(3,3), RotMLocInv(3,3)
     REAL(KIND=dp) :: C(3,3)

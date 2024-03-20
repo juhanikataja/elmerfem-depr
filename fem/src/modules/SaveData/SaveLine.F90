@@ -958,6 +958,7 @@ CONTAINS
       node_id, dgnode_id, Basis, UseNode, NodalFlux, LocalCoord, &
       GlobalCoord, linepos, ParNode )
 
+    use, intrinsic :: ieee_arithmetic, only: isnan=>ieee_is_nan
     TYPE(Element_t), POINTER :: Element
     REAL(KIND=dp), TARGET, OPTIONAL :: Basis(:)
     INTEGER :: bc_id, node_id, dgnode_id

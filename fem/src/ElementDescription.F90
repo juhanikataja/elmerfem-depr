@@ -78,6 +78,11 @@ MODULE ElementDescription
 ! !DIR$ ATTRIBUTES ALIGN:64::uWrk, vWrk, wWrk
   private:: ErrorSilent, WarnSilent, FatalSilent
 
+#ifdef __NVCOMPILER
+  INTEGER, PARAMETER, private:: qp = dp
+#else
+  INTEGER, PARAMETER, private:: qp = SELECTED_REAL_KIND(24)
+#endif
 CONTAINS
 
 #define NO_STDOUT
@@ -11319,7 +11324,7 @@ END SUBROUTINE PickActiveFace
      INTEGER :: cdim,dim,i,j,k,n,imin,jmin
      REAL(KIND=dp), DIMENSION(:), POINTER :: x,y,z
 
-     INTEGER, PARAMETER :: qp = SELECTED_REAL_KIND(24)     
+    !INTEGER, PARAMETER :: qp = SELECTED_REAL_KIND(24)     
 
      REAL(KIND=qp) :: dp_dx(3,3),dp_G(3,3),dp_GI(3,3),dp_s, dp_DetG
      REAL(KIND=dp) :: qp_dx(3,3),qp_G(3,3),qp_GI(3,3),qp_s, qp_DetG, eps
@@ -11596,7 +11601,7 @@ END SUBROUTINE PickActiveFace
      INTEGER :: cdim,dim,i,j,k,n
 
 ! Local Quadratic precision variables     
-     INTEGER, PARAMETER :: qp = SELECTED_REAL_KIND(24)     
+    !INTEGER, PARAMETER :: qp = SELECTED_REAL_KIND(24)     
      REAL(KIND=qp) :: dx(3,3),G(3,3),GI(3,3),s,DetGqp
 !------------------------------------------------------------------------------
      success = .FALSE.
@@ -14008,7 +14013,7 @@ END FUNCTION PointFaceDistance
 !------------------------------------------------------------------------------
   SUBROUTINE InvertMatrix3x3QP( G,GI,detG )
 !------------------------------------------------------------------------------
-    INTEGER, PARAMETER :: qp = SELECTED_REAL_KIND(24)     
+    !INTEGER, PARAMETER :: qp = SELECTED_REAL_KIND(24)     
     REAL(KIND=qp) :: G(3,3),GI(3,3)
     REAL(KIND=qp) :: detG, s
 !------------------------------------------------------------------------------
