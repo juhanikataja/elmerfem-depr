@@ -2586,7 +2586,9 @@ CONTAINS
          IF(ASSOCIATED(Parent)) BodyId = Parent % BodyId
        END IF
        IF (BodyId==0) THEN
+#ifndef NO_STDOUT
          CALL Warn('ElementBasisDegree', 'Element has no body index, assuming the index 1')
+#endif
          BodyId = 1
        END IF
 
@@ -3209,7 +3211,9 @@ CONTAINS
         IF(ASSOCIATED(Parent)) BodyId = Parent % BodyId
       END IF
       IF (BodyId==0) THEN
+#ifndef NO_STDOUT
         CALL Warn('ElementInfo', 'Element has no body index, assuming the index 1')
+#endif
         BodyId = 1
       END IF
 
@@ -4357,7 +4361,9 @@ CONTAINS
      ! Set up workspace arrays 
      ! CALL ElementInfoVec_InitWork(VECTOR_BLOCK_LENGTH, nbmax)
      IF ( nbmax < Element % TYPE % NumberOfNodes ) THEN
+#ifndef NO_STDOUT
        CALL Fatal('ElementInfoVec','Not enough storage to compute local element basis')
+#endif
      END IF
 
      IF(PRESENT(dBasisdx))  &
@@ -4482,7 +4488,9 @@ CONTAINS
      END IF
 
      IF (BodyId==0) THEN
+#ifndef NO_STDOUT
        CALL Warn('ElementBasisDegree', 'Element has no body index, assuming the index 1')
+#endif
        BodyId = 1
      END IF
 
@@ -4640,8 +4648,10 @@ CONTAINS
            p = getEffectiveBubbleP(element,p,bdofs)
 
            IF(nbmax-nbp<getBubbleDOFs(Element,p)) THEN
+#ifndef NO_STDOUT
              CALL Fatal("ElementInfoVec", &
                "Quad bubble scheme has changed, number of bubbles is now (p-1)^2 (0,1,4,9,16,25,...)")
+#endif
            END IF
 
            ! For first round of blocked loop, compute polynomial degrees and 
@@ -4781,8 +4791,10 @@ CONTAINS
        ! Pyramid
        CASE (605)
          IF(SerendipityPBasis) THEN
+#ifndef NO_STDOUT
            CALL Fatal('ElementInfoVec', 'p-Pyramid not available for serendipity scheme, ' // &
                   'please use full polynomial scheme instead.' )
+#endif
          END IF
 
          ! Compute nodal basis
@@ -5284,7 +5296,9 @@ CONTAINS
          w = 0.0_dp
          
        CASE DEFAULT
+#ifndef NO_STDOUT
          CALL Fatal('ElementSize','Not implemented for elementtype')
+#endif
 
        END SELECT
 
@@ -6283,9 +6297,11 @@ SUBROUTINE FaceElementOrientation(Element, ReverseSign, FaceIndex, Nodes)
       END DO
 
       IF ( ANY(ReverseSign(1:4) .NEQV. ReverseSign2(1:4)) ) THEN
+#ifndef NO_STDOUT
         PRINT *, 'CONFLICTING SIGN REVERSIONS SUGGESTED'
         PRINT *, ReverseSign(1:4)
         PRINT *, ReverseSign2(1:4)
+#endif
         STOP EXIT_ERROR
       END IF
     END IF
@@ -6591,7 +6607,9 @@ SUBROUTINE PickActiveFace(Mesh, Parent, Element, Face, ActiveFaceId)
   IF (matches /= Element % TYPE % NumberOfNodes) THEN
     Face => NULL()
     ActiveFaceId = 0
+#ifndef NO_STDOUT
     CALL Warn('PickActiveFace', 'The element is not a face of given parent')
+#endif
   END IF
 !------------------------------------------------------------------------------
 END SUBROUTINE PickActiveFace
@@ -7101,7 +7119,9 @@ END SUBROUTINE PickActiveFace
            END IF
 
            IF (.NOT. ASSOCIATED(Parent)) THEN
+#ifndef NO_STDOUT
              CALL Warn('EdgeElementInfo', 'cannot create curl-conforming basis functions, zeros returned')
+#endif
              RETURN
            END IF
            !
@@ -14021,6 +14041,7 @@ END FUNCTION PointFaceDistance
     IF ( .NOT. Converged ) THEN        
       IF( err > SQRT( acc ) ) THEN
         IF( i > MaxIter ) THEN	
+#ifndef NO_STDOUT
           CALL Warn( 'GlobalToLocal', 'did not converge.')
           PRINT *,'rst',i,r,s,t
           PRINT *,'err',err,acc,SQRT(acc)
@@ -14030,6 +14051,7 @@ END FUNCTION PointFaceDistance
           PRINT *,'x:',x,ElementNodes % x(1:n)
           PRINT *,'y:',y,ElementNodes % y(1:n)
           PRINT *,'z:',z,ElementNodes % z(1:n)
+#endif
         ELSE
 !          CALL Warn( 'GlobalToLocal', 'Node may be out of element')
 !          PRINT *,'rst',i,r,s,t,acc
