@@ -59,8 +59,8 @@ CONTAINS
 
   ! Compute bilinear form G=G+(alpha grad u, grad u) = grad u .dot. (alpha grad u) 
   SUBROUTINE LinearForms_GradUdotGradU(m, n, dim, GradU, weight, G, alpha)
-    !$omp declare target 
     IMPLICIT NONE
+    !$omp declare target 
     INTEGER, INTENT(IN) :: m, n, dim
     REAL(KIND=dp) CONTIG, INTENT(IN) :: GradU(:,:,:), weight(:)
     REAL(KIND=dp) CONTIG, INTENT(INOUT) :: G(:,:)

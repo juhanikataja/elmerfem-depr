@@ -76,7 +76,6 @@ MODULE ElementDescription
 ! !DIR$ ATTRIBUTES ALIGN:64::LtoGMapsWrk
 ! !DIR$ ATTRIBUTES ALIGN:64::DetJWrk
 ! !DIR$ ATTRIBUTES ALIGN:64::uWrk, vWrk, wWrk
-  private:: ErrorSilent, WarnSilent, FatalSilent
 
 #ifdef __NVCOMPILER
   INTEGER, PARAMETER, private:: qp = dp
@@ -86,34 +85,6 @@ MODULE ElementDescription
 CONTAINS
 
 #define NO_STDOUT
-#ifdef NO_STDOUT
-
-  SUBROUTINE InfoSilent( Caller, String, noAdvance, Level )
-     CHARACTER(LEN=*) :: Caller, String
-     INTEGER, OPTIONAL :: Level
-     LOGICAL, OPTIONAL :: noAdvance
-  END SUBROUTINE
-
-   SUBROUTINE WarnSilent( Caller, String, noAdvance )
-     CHARACTER(LEN=*) :: Caller, String
-     LOGICAL, OPTIONAL :: noAdvance
-   END SUBROUTINE
-
-   SUBROUTINE FatalSilent( Caller, String, noAdvance )
-     CHARACTER(LEN=*) :: Caller, String
-     LOGICAL, OPTIONAL :: noAdvance
-        STOP EXIT_ERROR
-   END SUBROUTINE
-
-   SUBROUTINE ErrorSilent( Caller, String, noAdvance )
-     CHARACTER(LEN=*) :: Caller, String
-     LOGICAL, OPTIONAL :: noAdvance
-   END SUBROUTINE
-#define Warn WarnSilent
-#define Fatal FatalSilent
-#define Error ErrorSilent
-#define Info InfoSilent
-#endif
 
 !------------------------------------------------------------------------------
     SUBROUTINE SwapRefElemNodes(p)
@@ -522,8 +493,10 @@ CONTAINS
         INQUIRE(FILE=TRIM(tstr), EXIST=fexist)
      END IF
      IF (.NOT. fexist) THEN
+#ifndef NO_STDOUT
         WRITE (Message, *) TRIM(tstr), ' not found'
         CALL Fatal('InitializeElementDescriptions', Message)
+#endif
      END IF
 
       OPEN( 1,FILE=TRIM(tstr), STATUS='OLD' )
@@ -640,9 +613,11 @@ CONTAINS
       END DO
 
       IF ( .NOT. ASSOCIATED( element ) ) THEN
+#ifndef NO_STDOUT
         WRITE( message, * ) &
              'Element type code ',code,' not found. Ignoring element.'
         CALL Warn( 'GetElementType', message )
+#endif
         RETURN
       END IF
 
@@ -3586,8 +3561,10 @@ CONTAINS
      CASE(605)
 
         IF(SerendipityPBasis) THEN
+#ifndef NO_STDOUT
           CALL Fatal('ElementInfo', 'p-Pyramid not implented for serendipity scheme, ' // &
                       'please use the full scheme instead.')
+#endif
         END IF
 
         ! Edges of P Pyramid
@@ -4274,12 +4251,17 @@ CONTAINS
                 END DO
               END DO
 
+#ifndef NO_STDOUT
          CASE DEFAULT
+#endif
+
  
+#ifndef NO_STDOUT
               WRITE( Message, '(a,i4,a)' ) 'Bubbles for element: ', &
                Element % TYPE % ElementCode, ' are not implemented.'
               CALL Error( 'ElementInfo', Message )
               CALL Fatal( 'ElementInfo', 'Please use p-element basis instead.' )
+#endif
 
          END SELECT
        END IF
@@ -5047,8 +5029,10 @@ CONTAINS
            p = getEffectiveBubbleP(element,p,bdofs)
 
            IF(nbmax-nbp<getBubbleDOFs(Element,p)) THEN
+#ifndef NO_STDOUT
              CALL Fatal("ElementInfoVec", &
                 "Brick bubble scheme has changed, number of bubbles is now (p-1)^3 (1,8,27,64,125,...)")
+#endif
            END IF
 
            IF(SerendipityPBasis) THEN
@@ -5062,10 +5046,12 @@ CONTAINS
 
          
        CASE DEFAULT
+#ifndef NO_STDOUT
          WRITE( Message, '(a,i4,a)' ) 'Vectorized basis for element: ', &
                Element % TYPE % ElementCode, ' not implemented.'
          CALL Error( 'ElementInfoVec', Message )
          CALL Fatal( 'ElementInfoVec', 'ElementInfoVec is still does not include pyramids.' )
+#endif
        END SELECT
 
        ! Copy basis function values to global array
@@ -5425,7 +5411,9 @@ CONTAINS
            dLBasisdx(q,1:3) = dBrickNodalPBasis(q, u, v, w)
          END DO
        CASE DEFAULT
+#ifndef NO_STDOUT
           CALL Fatal('ElementDescription::FaceElementInfo','Unsupported element type')
+#endif
        END SELECT          
 
        !-----------------------------------------------------------------------
@@ -6020,7 +6008,9 @@ CONTAINS
          END DO
 
        CASE DEFAULT
+#ifndef NO_STDOUT
           CALL Fatal('ElementDescription::FaceElementInfo','Unsupported element type')
+#endif
        END SELECT
 
        IF (PerformPiolaTransform) THEN
@@ -6143,8 +6133,10 @@ SUBROUTINE FaceElementOrientation(Element, ReverseSign, FaceIndex, Nodes)
     FaceMap => GetEdgeMap(3) 
 
     IF (.NOT. PRESENT(FaceIndex)) last_face = 3
+#ifndef NO_STDOUT
     IF (SIZE(ReverseSign) < last_face) CALL Fatal('FaceElementOrientation', &
         'Too small array for listing element faces')
+#endif
     
     DO q=first_face,last_face
       DO j=1,2
@@ -6163,8 +6155,10 @@ SUBROUTINE FaceElementOrientation(Element, ReverseSign, FaceIndex, Nodes)
     FaceMap => GetEdgeMap(4)
 
     IF (.NOT. PRESENT(FaceIndex)) last_face = 4
+#ifndef NO_STDOUT
     IF (SIZE(ReverseSign) < last_face) CALL Fatal('FaceElementOrientation', &
         'Too small array for listing element faces')
+#endif
     
     DO q=first_face,last_face
       DO j=1,2
@@ -6188,8 +6182,10 @@ SUBROUTINE FaceElementOrientation(Element, ReverseSign, FaceIndex, Nodes)
     FaceMap => TetraFaceMap
 
     IF (.NOT. PRESENT(FaceIndex)) last_face = 4
+#ifndef NO_STDOUT
     IF (SIZE(ReverseSign) < last_face) CALL Fatal('FaceElementOrientation', &
         'Too small array for listing element faces')
+#endif
 
     DO q=first_face,last_face
       DO j=1,3
@@ -6309,8 +6305,10 @@ SUBROUTINE FaceElementOrientation(Element, ReverseSign, FaceIndex, Nodes)
     FaceMap => BrickFaceMap
 
     IF (.NOT. PRESENT(FaceIndex)) last_face = 6
+#ifndef NO_STDOUT
     IF (SIZE(ReverseSign) < last_face) CALL Fatal('FaceElementOrientation', &
         'Too small array for listing element faces')
+#endif
 
     DO q=first_face,last_face
       DO j=1,4
@@ -6326,7 +6324,9 @@ SUBROUTINE FaceElementOrientation(Element, ReverseSign, FaceIndex, Nodes)
     END DO
 
   CASE DEFAULT
+#ifndef NO_STDOUT
     CALL Fatal('FaceElementOrientation', 'Unsupported element family')
+#endif
   END SELECT
 !-----------------------------------------------------------------------------------
 END SUBROUTINE FaceElementOrientation
@@ -6513,7 +6513,9 @@ SUBROUTINE FaceElementBasisOrdering(Element, FDofMap, FaceIndex, ReverseSign)
           ReverseNormal(q) = .TRUE.
         END IF
       CASE DEFAULT
+#ifndef NO_STDOUT
         CALL Fatal('ElementDescription::FaceElementBasisOrdering','Erratic square face Indices')
+#endif
       END SELECT
 
     END DO
@@ -6521,7 +6523,9 @@ SUBROUTINE FaceElementBasisOrdering(Element, FDofMap, FaceIndex, ReverseSign)
     IF (PRESENT(ReverseSign)) ReverseSign(1:6) = ReverseNormal(1:6)
 
   CASE DEFAULT
+#ifndef NO_STDOUT
     CALL Fatal('FaceElementBasisOrdering', 'Unsupported element family')
+#endif
   END SELECT
 !-----------------------------------------------------------------------------------
 END SUBROUTINE FaceElementBasisOrdering
@@ -6579,7 +6583,9 @@ SUBROUTINE PickActiveFace(Mesh, Parent, Element, Face, ActiveFaceId)
       matches = 0
     END IF
   CASE DEFAULT
+#ifndef NO_STDOUT
     CALL Fatal('PickActiveFace', 'Element variable is of a wrong dimension')
+#endif
   END SELECT
 
   IF (matches /= Element % TYPE % NumberOfNodes) THEN
@@ -6737,10 +6743,12 @@ END SUBROUTINE PickActiveFace
        !-----------------------------------------------------------------------
        SELECT CASE(Element % TYPE % ElementCode / 100)
        CASE(2)
+#ifndef NO_STDOUT
          IF (SecondOrder .AND. n==3) CALL Fatal('EdgeElementInfo', &
              'The lowest-order background mesh needed for trace evaluation over an edge')
          IF (Create2ndKindBasis) CALL Fatal('EdgeElementInfo', &
              'Traces of 2-D edge elements (the 2nd family) have not been implemented yet')
+#endif
          IF (SecondOrder) THEN
            DOFs = 2
          ELSE
@@ -7024,7 +7032,9 @@ END SUBROUTINE PickActiveFace
            END DO
          END IF
        CASE DEFAULT
+#ifndef NO_STDOUT
          CALL Fatal('ElementDescription::EdgeElementInfo','Unsupported element type')
+#endif
        END SELECT
 
        !-----------------------------------------------------------------------
@@ -7063,7 +7073,9 @@ END SUBROUTINE PickActiveFace
           CASE(5,6,7,8)
              CALL InvertMatrix3x3(LF,LG,detF)       
           CASE DEFAULT
+#ifndef NO_STDOUT
              CALL Fatal('ElementDescription::EdgeElementInfo','Unsupported element type')
+#endif
           END SELECT
           LG(1:dim,1:dim) = TRANSPOSE( LG(1:dim,1:dim) )
        END IF
@@ -10488,7 +10500,9 @@ END SUBROUTINE PickActiveFace
            END IF
 
          CASE DEFAULT
+#ifndef NO_STDOUT
            CALL Fatal('ElementDescription::EdgeElementInfo','Unsupported element type')
+#endif
          END SELECT
        END IF
 
@@ -10672,7 +10686,9 @@ END SUBROUTINE PickActiveFace
           D1 = -1.0d0
           D2 = -1.0d0          
        CASE DEFAULT
+#ifndef NO_STDOUT
           CALL Fatal('ElementDescription::TriangleFaceDofsOrdering','Erratic triangular face Indices')
+#endif
        END SELECT
 !---------------------------------------------------------
      END SUBROUTINE TriangleFaceDofsOrdering
@@ -10744,7 +10760,9 @@ END SUBROUTINE PickActiveFace
              s(2) = -0.5d0       
           END IF
        CASE DEFAULT
+#ifndef NO_STDOUT
           CALL Fatal('ElementDescription::TriangleFaceDofsOrdering','Erratic square face Indices')
+#endif
        END SELECT
 !---------------------------------------------------------
      END SUBROUTINE TriangleFaceDofsOrdering2
@@ -10854,7 +10872,9 @@ END SUBROUTINE PickActiveFace
              ReverseNormal = .TRUE.
           END IF
        CASE DEFAULT
+#ifndef NO_STDOUT
           CALL Fatal('ElementDescription::SquareFaceDofsOrdering','Erratic square face Indices')
+#endif
        END SELECT
 
        IF (PRESENT(ReverseSign)) ReverseSign = ReverseNormal
@@ -11021,7 +11041,9 @@ END SUBROUTINE PickActiveFace
           PermVec(27) = 27
            
        CASE DEFAULT
+#ifndef NO_STDOUT
           CALL Fatal('ElementDescription::ReorderingAndSignReversionsData','Unsupported element type')
+#endif
        END SELECT
 !----------------------------------------------------------
      END SUBROUTINE ReorderingAndSignReversionsData
@@ -11053,7 +11075,9 @@ END SUBROUTINE PickActiveFace
      Parallel = ASSOCIATED(Mesh % ParallelInfo % GInterface)
 
      IF (Element % TYPE % BasisFunctionDegree>1) THEN
+#ifndef NO_STDOUT
        CALL Fatal('GetEdgeBasis',"Can't handle but linear elements, sorry.") 
+#endif
      END IF
 
      SELECT CASE(Element % TYPE % ElementCode / 100)
@@ -11294,7 +11318,9 @@ END SUBROUTINE PickActiveFace
          RotWBasis(i,2)=(dBase(3)*du(1) - dBase(1)*du(3))/n
          RotWBasis(i,3)=(dBase(1)*du(2) - dBase(2)*du(1))/n
        CASE DEFAULT
+#ifndef NO_STDOUT
          CALL Fatal( 'Edge Basis', 'Not implemented for this element type.')
+#endif
        END SELECT
 
        IF( nk < nj ) THEN
@@ -11536,19 +11562,29 @@ END SUBROUTINE PickActiveFace
        IF( Success ) RETURN
      END IF
      
+#ifndef NO_STDOUT
      WRITE( Message,'(A,I0,A,I0)') 'Degenerate ',dim,'D element: ',Elm % ElementIndex
      CALL Error( 'ElementMetric', Message )
+#endif
      
      IF( ASSOCIATED( Elm % BoundaryInfo ) ) THEN
+#ifndef NO_STDOUT
        WRITE( Message,'(A,I0,A,ES14.6)') 'Boundary Id: ',Elm % BoundaryInfo % Constraint,' DetG:',DetG
+#endif
      ELSE
+#ifndef NO_STDOUT
        WRITE( Message,'(A,I0,A,ES14.6)') 'Body Id: ',Elm % BodyId,' DetG:',DetG
+#endif
      END IF
+#ifndef NO_STDOUT
      CALL Info( 'ElementMetric', Message, Level=3 )
+#endif
 
      DO i=1,n
+#ifndef NO_STDOUT
        WRITE( Message,'(A,I0,A,3ES14.6)') 'Node: ',i,' Coord:',x(i),y(i),z(i)       
        CALL Info( 'ElementMetric', Message, Level=3 )
+#endif
      END DO
 
      ! Find the two nodes closest to each other:
@@ -11565,14 +11601,18 @@ END SUBROUTINE PickActiveFace
      END DO
      smin = SQRT(smin)
 
+#ifndef NO_STDOUT
      WRITE( Message,'(A,I0,A,I0,A,I0,A,I0,A,ES14.6)') 'Closest distance: ',imin,'-',jmin,&
          ' (',Elm % NodeIndexes(imin),'-',Elm % NodeIndexes(jmin),') |dCoord|:',smin
      CALL Info( 'ElementMetric', Message, Level=3 )
+#endif
 
+#ifndef NO_STDOUT
      IF ( cdim < dim ) THEN
        WRITE( Message,'(A,I0,A,I0)') 'Element dim larger than meshdim: ',dim,' vs. ',cdim
        CALL Info( 'ElementMetric', Message, Level=3 )
      END IF
+#endif
 
 !------------------------------------------------------------------------------
    END FUNCTION ElementMetric
@@ -11947,6 +11987,7 @@ END SUBROUTINE PickActiveFace
      ELSE
 
        ! Degenerate element!
+#ifndef NO_STDOUT
        WRITE( Message,'(A,I0,A,I0,A,I0)') 'Degenerate ',dim,'D element: ',Elm % ElementIndex, ', pt=', i
        CALL Error( 'ElementMetricVec', Message )
        WRITE( Message,'(A,G10.3)') 'DetG:',DetJ(i)
@@ -11960,6 +12001,7 @@ END SUBROUTINE PickActiveFace
          WRITE( Message,'(A,I0,A,I0)') 'Element dim larger than meshdim: ',dim,' vs. ',cdim
          CALL Info( 'ElementMetricVec', Message, Level=3 )
        END IF
+#endif
      END IF
 
    CONTAINS
@@ -12448,8 +12490,10 @@ END SUBROUTINE PickActiveFace
     CASE(8) 
       EdgeMap => Brick
     CASE DEFAULT
+#ifndef NO_STDOUT
       WRITE( Message,'(A,I0,A)') 'Element family ',ElementFamily,' is not known!'
       CALL Fatal( 'GetEdgeMap', Message )
+#endif
     END SELECT
  
     IF ( .NOT. Initialized(ElementFamily) ) THEN
@@ -12916,8 +12960,10 @@ END SUBROUTINE PickActiveFace
     ELSE
 #ifdef _OPENMP
       IF (omp_in_parallel()) THEN
+#ifndef NO_STDOUT
         CALL Fatal('CheckPassiveElement', &
              'Need an element to update inside a threaded region')
+#endif
       END IF
 #endif
       Element => CurrentModel % CurrentElement
@@ -13068,7 +13114,9 @@ END SUBROUTINE PickActiveFace
       v = 1.0d0/3
       w = 0.0d0
     CASE DEFAULT
+#ifndef NO_STDOUT
       CALL Fatal('CheckNormalDirection','Invalid elementcode for parent element!')   
+#endif
       
     END SELECT
 
@@ -13145,7 +13193,9 @@ END SUBROUTINE PickActiveFace
       y1 = InterpolateInElement( Element, ny, 1.0d0/3, 1.0d0/3, 0.0d0 )
       z1 = InterpolateInElement( Element, nz, 1.0d0/3, 1.0d0/3, 0.0d0 )
     CASE DEFAULT
+#ifndef NO_STDOUT
       CALL Fatal('CheckNormalDirection','Invalid elementcode for parent element!')   
+#endif
       
     END SELECT
 
@@ -13303,7 +13353,9 @@ END SUBROUTINE PickActiveFace
       Normal(3) = (dxdu * dydv - dxdv * dydu) * detA
     
     CASE DEFAULT
+#ifndef NO_STDOUT
       CALL Fatal('NormalVector','Invalid dimension for determining normal!')
+#endif
       
     END SELECT
 
@@ -13425,7 +13477,9 @@ END SUBROUTINE PickActiveFace
         Normal = Normal / SQRT(SUM(Normal**2))
 
       CASE DEFAULT
+#ifndef NO_STDOUT
         CALL Fatal('NormalVector','Invalid dimension for determining normal!')
+#endif
 
       END SELECT
       
@@ -13530,7 +13584,9 @@ END SUBROUTINE PickActiveFace
         END IF
         
       CASE DEFAULT
+#ifndef NO_STDOUT
         CALL Fatal('NormalVector','Invalid dimension for determining normal!')
+#endif
         
       END SELECT
     END IF
