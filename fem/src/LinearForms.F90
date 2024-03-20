@@ -59,7 +59,7 @@ CONTAINS
 
   ! Compute bilinear form G=G+(alpha grad u, grad u) = grad u .dot. (alpha grad u) 
   SUBROUTINE LinearForms_GradUdotGradU(m, n, dim, GradU, weight, G, alpha)
-    !$omp declare target (LinearForms_GradUdotGradU)
+    !$omp declare target 
     IMPLICIT NONE
     INTEGER, INTENT(IN) :: m, n, dim
     REAL(KIND=dp) CONTIG, INTENT(IN) :: GradU(:,:,:), weight(:)
@@ -147,7 +147,7 @@ CONTAINS
   ! Compute bilinear form G=G+(alpha grad u, u) = u .dot. (alpha grad u) 
   SUBROUTINE LinearForms_GradUdotU(m, n, dim, GradU, U, weight, G, alpha, beta)
     IMPLICIT NONE
-    !$omp declare target (LinearForms_GradUdotU)
+    !$omp declare target 
 
     INTEGER, INTENT(IN) :: m, n, dim
     REAL(KIND=dp) CONTIG, INTENT(IN) :: GradU(:,:,:), U(:,:), weight(:)
@@ -271,7 +271,7 @@ CONTAINS
   ! Compute bilinear form G=G+(alpha u, v), where u and v can be different basis functions
   SUBROUTINE LinearForms_UdotV(m, n, dim, U, V, weight, G, alpha)
     IMPLICIT NONE
-    !$omp declare target (LinearForms_UdotV)
+    !$omp declare target 
 
     INTEGER, INTENT(IN) :: m, n, dim
     REAL(KIND=dp) CONTIG, INTENT(IN) :: U(:,:), V(:,:), weight(:)
@@ -344,7 +344,7 @@ CONTAINS
   ! Compute bilinear form G=G+(alpha u, u) = u .dot. (grad u) 
   SUBROUTINE LinearForms_UdotU(m, n, dim, U, weight, G, alpha)
     IMPLICIT NONE
-    !$omp declare target (LinearForms_UdotU)
+    !$omp declare target 
     INTEGER, INTENT(IN) :: m, n, dim
     REAL(KIND=dp) CONTIG, INTENT(IN) :: U(:,:), weight(:)
     REAL(KIND=dp) CONTIG, INTENT(INOUT) :: G(:,:)
