@@ -105,7 +105,7 @@ MODULE DefUtils
    !$OMP THREADPRIVATE(IndexStore, VecIndexStore, ValueStore)
 
    TYPE(Element_t), POINTER :: CurrentElementThread => NULL()
-   !$OMP THREADPRIVATE(CurrentElementThread)
+  !$OMP THREADPRIVATE(CurrentElementThread)
    
    ! TODO: Get actual values for these from mesh
    INTEGER, PARAMETER, PRIVATE :: ISTORE_MAX_SIZE = 1024

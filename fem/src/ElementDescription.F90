@@ -1031,7 +1031,7 @@ CONTAINS
 !------------------------------------------------------------------------------
    SUBROUTINE NodalBasisFunctions2D( y,element,u,v )
 !------------------------------------------------------------------------------
-    !$OMP DECLARE TARGET
+    !!$OMP DECLARE TARGET
      REAL(KIND=dp) :: y(:)       !< The values of the reference element basis
      TYPE(Element_t) :: element  !< element structure
      REAL(KIND=dp) :: u          !< Point at which to evaluate the value
@@ -2324,7 +2324,7 @@ CONTAINS
 !------------------------------------------------------------------------------
    SUBROUTINE NodalBasisFunctions( n, Basis, element, u, v, w, USolver)
 !------------------------------------------------------------------------------
-    !$OMP DECLARE TARGET
+    !!$OMP DECLARE TARGET
      INTEGER :: n                 !< The number of (background) element nodes
      REAL(KIND=dp) :: Basis(:)    !< The values of reference element basis
      TYPE(Element_t) :: element   !< The element structure
@@ -2433,7 +2433,7 @@ CONTAINS
 !------------------------------------------------------------------------------
    SUBROUTINE NodalFirstDerivatives( n, dLBasisdx, element, u, v, w, USolver )
 !------------------------------------------------------------------------------
-    !$OMP DECLARE TARGET
+    !!$OMP DECLARE TARGET
      INTEGER :: n                    !< The number of (background) element nodes
      REAL(KIND=dp) :: dLBasisdx(:,:) !< The gradient of reference element basis functions
      TYPE(Element_t) :: element      !< The element structure
@@ -4316,7 +4316,7 @@ CONTAINS
                Basis, dBasisdx, USolver ) RESULT(retval)
 !------------------------------------------------------------------------------
      IMPLICIT NONE
-    !$OMP DECLARE TARGET
+    !!$OMP DECLARE TARGET
 
      TYPE(Element_t), TARGET :: Element    !< Element structure
      TYPE(Nodes_t)   :: Nodes              !< Element nodal coordinates.
@@ -4426,7 +4426,7 @@ CONTAINS
    FUNCTION ElementInfoVec_ComputePElementBasis(Element, Nodes, nc, u, v, w, DetJ, nbmax, Basis, &
       uWrk, vWrk, wWrk, BasisWrk, dBasisdxWrk, DetJWrk, LtoGmapsWrk, dBasisdx, USolver) RESULT(retval)
      IMPLICIT NONE
-    !$OMP DECLARE TARGET
+    !!$OMP DECLARE TARGET
      TYPE(Element_t), TARGET :: Element    !< Element structure
      TYPE(Nodes_t)   :: Nodes              !< Element nodal coordinates.
      INTEGER, INTENT(IN) :: nc             !< Number of local coordinates to compute values of the basis function
@@ -5180,7 +5180,7 @@ CONTAINS
    
    SUBROUTINE ElementInfoVec_ElementBasisToGlobal(npts, nbasis, nbmax, dLBasisdx, dim, cdim, LtoGMap, offset, dBasisdx)
      IMPLICIT NONE
-    !$OMP DECLARE TARGET
+    !!$OMP DECLARE TARGET
 
      INTEGER, INTENT(IN) :: npts
      INTEGER, INTENT(IN) :: nbasis
@@ -11758,7 +11758,7 @@ END SUBROUTINE PickActiveFace
 !------------------------------------------------------------------------------
    FUNCTION ElementMetricVec( Elm, Nodes, nc, ndof, DetJ, nbmax, dLBasisdx, LtoGMap) RESULT(AllSuccess)
 !------------------------------------------------------------------------------
-    !$OMP DECLARE TARGET
+    !!$OMP DECLARE TARGET
      TYPE(Element_t)  :: Elm                                 !< Element structure
      TYPE(Nodes_t)    :: Nodes                               !< element nodal coordinates
      INTEGER, INTENT(IN) :: nc                               !< Number of points to map
@@ -11815,6 +11815,7 @@ END SUBROUTINE PickActiveFace
            END DO
          END DO
        END DO
+       
      ELSE
        DO i=1,dim
          CALL DGEMM('N','N',nc, 3, n, &
